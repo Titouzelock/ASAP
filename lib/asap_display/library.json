@@ -1,0 +1,17 @@
+{
+  "name": "asap_display",
+  "version": "0.1.0",
+  "description": "SSD1322 display abstraction for the ASAP detector firmware.",
+  "keywords": [
+    "display",
+    "ssd1322",
+    "u8g2"
+  ],
+  "frameworks": [
+    "arduino"
+  ],
+  "platforms": [
+    "ststm32"
+  ]
+}
+
