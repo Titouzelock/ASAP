@@ -153,6 +153,38 @@ void test_snapshot_export_creates_pgm(void) {
   RemoveIfExists(statusPath);
   TEST_ASSERT_TRUE(display.writeSnapshot(statusPath.string().c_str()));
 
+  // Joystick snapshots for LEFT/RIGHT/UP/DOWN/CLICK/NEUTRAL
+  display.showJoystick(asap::input::JoyAction::Left);
+  const auto jsLeft = SnapshotPath("joystick_left.pgm");
+  RemoveIfExists(jsLeft);
+  TEST_ASSERT_TRUE(display.writeSnapshot(jsLeft.string().c_str()));
+
+  display.showJoystick(asap::input::JoyAction::Right);
+  const auto jsRight = SnapshotPath("joystick_right.pgm");
+  RemoveIfExists(jsRight);
+  TEST_ASSERT_TRUE(display.writeSnapshot(jsRight.string().c_str()));
+
+  display.showJoystick(asap::input::JoyAction::Up);
+  const auto jsUp = SnapshotPath("joystick_up.pgm");
+  RemoveIfExists(jsUp);
+  TEST_ASSERT_TRUE(display.writeSnapshot(jsUp.string().c_str()));
+
+  display.showJoystick(asap::input::JoyAction::Down);
+  const auto jsDown = SnapshotPath("joystick_down.pgm");
+  RemoveIfExists(jsDown);
+  TEST_ASSERT_TRUE(display.writeSnapshot(jsDown.string().c_str()));
+
+  // Click is an edge in hardware; for snapshot we render the word
+  display.showJoystick(asap::input::JoyAction::Click);
+  const auto jsClick = SnapshotPath("joystick_click.pgm");
+  RemoveIfExists(jsClick);
+  TEST_ASSERT_TRUE(display.writeSnapshot(jsClick.string().c_str()));
+
+  display.showJoystick(asap::input::JoyAction::Neutral);
+  const auto jsNeutral = SnapshotPath("joystick_neutral.pgm");
+  RemoveIfExists(jsNeutral);
+  TEST_ASSERT_TRUE(display.writeSnapshot(jsNeutral.string().c_str()));
+
   // Confirm the boot snapshot is still present for manual inspection.
   TEST_ASSERT_TRUE(std::ifstream(bootPath, std::ios::binary).good());
 }
