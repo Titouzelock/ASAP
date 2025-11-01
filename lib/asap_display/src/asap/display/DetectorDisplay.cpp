@@ -137,6 +137,7 @@ const GlyphDef* findGlyph(char ch) {
 }  // namespace
 
 // Build the boot splash frame with title, subtitle, and optional FW version.
+// Compose the boot splash – static branding + optional firmware string.
 DisplayFrame makeBootFrame(const char* versionText) {
   DisplayFrame frame{};
   frame.lineCount = 0;
@@ -149,7 +150,7 @@ DisplayFrame makeBootFrame(const char* versionText) {
   title.y = 26;
 
   DisplayLine& subtitle = frame.lines[frame.lineCount++];
-  copyText(subtitle.text, DisplayLine::kMaxLineLength, "Initializing display...");
+  copyText(subtitle.text, DisplayLine::kMaxLineLength, "Titoozelock");
   subtitle.font = FontStyle::Body;
   subtitle.y = 44;
 
@@ -166,12 +167,12 @@ DisplayFrame makeBootFrame(const char* versionText) {
 }
 
 // Build the heartbeat frame presenting uptime and spinner state.
+// Compose the idling / heartbeat page shown while the detector is ready.
 DisplayFrame makeHeartbeatFrame(uint32_t uptimeMs) {
   DisplayFrame frame{};
   frame.lineCount = 0;
-  frame.spinnerActive = true;
-  frame.spinnerIndex =
-      static_cast<uint8_t>((uptimeMs / 150U) % 4U);  // four spinner positions
+  frame.spinnerActive = false;
+  frame.spinnerIndex = 0;
 
   DisplayLine& headline = frame.lines[frame.lineCount++];
   copyText(headline.text, DisplayLine::kMaxLineLength, "Detector ready");
@@ -190,6 +191,7 @@ DisplayFrame makeHeartbeatFrame(uint32_t uptimeMs) {
 }
 
 // Build a generic status frame with up to two lines of text.
+// Generic two-line status card (used for RF link states, alerts, etc.).
 DisplayFrame makeStatusFrame(const char* line1, const char* line2) {
   DisplayFrame frame{};
   frame.lineCount = 0;
@@ -284,6 +286,7 @@ void DetectorDisplay::renderFrame(const DisplayFrame& frame) {
 
   u8g2_.clearBuffer();
 
+  // Iterate each logical line and translate into concrete font calls.
   for (uint8_t i = 0; i < frame.lineCount; ++i) {
     const DisplayLine& line = frame.lines[i];
     if (line.font == FontStyle::Title) {
@@ -395,6 +398,8 @@ void DetectorDisplay::renderFrame(const DisplayFrame& frame, FrameKind kind) {
   lastFrame_ = frame;
   lastKind_ = kind;
 
+  // The native mock mirrors the hardware renderer but draws into an in-memory
+  // grayscale buffer instead of the OLED controller.
   clearBuffer();
 
   for (uint8_t i = 0; i < frame.lineCount; ++i) {

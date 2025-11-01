@@ -18,7 +18,8 @@ enum class FontStyle : uint8_t {
   Body,
 };
 
-// Identifies the semantic type of the most recent frame.
+// Identifies which screen/profile was rendered.
+// Treat this as a UI state identifier (boot splash, heartbeat HUD, status card).
 enum class FrameKind : uint8_t {
   None,
   Boot,
@@ -39,8 +40,8 @@ struct DisplayFrame {
   static constexpr uint8_t kMaxLines = 3;
   DisplayLine lines[kMaxLines];  // ordered list of text lines to draw
   uint8_t lineCount;             // number of valid entries in lines[]
-  bool spinnerActive;            // true when the heartbeat spinner should show
-  uint8_t spinnerIndex;          // active spinner segment (0..3)
+  bool spinnerActive;            // true when this frame wants an activity hint
+  uint8_t spinnerIndex;          // active spinner segment (0..3) when enabled
 };
 
 // Factory helpers for the pre-defined display states.
