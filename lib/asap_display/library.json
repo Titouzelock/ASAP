@@ -7,11 +7,6 @@
     "ssd1322",
     "u8g2"
   ],
-  "frameworks": [
-    "arduino"
-  ],
-  "platforms": [
-    "ststm32"
-  ]
+  "frameworks": "*",
+  "platforms": "*"
 }
-

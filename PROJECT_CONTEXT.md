@@ -74,6 +74,8 @@ Initial phase (v0.1):
 - Wiring (SPI 4-wire): `PA5` SCK, `PA7` MOSI, `PA4` CS, `PA3` DC, `PA2` RST, +3V3/GND for power.
 - Library scaffold: `lib/asap_display` exposes `DetectorDisplay` (boot splash + heartbeat spinner).
 - Heartbeat demo: refreshes every 250 ms with uptime text; spinner centers on the 256x64 canvas.
+- Native mock: `env:native` reuses the driver to capture frames, validated via Unity tests.
+- Snapshot export: native driver rasterises text/spinner frames into grayscale PGM snapshots for CI review.
 - Open items: brightness tuning, asset pipeline for icons, off-hardware verification harness for CI.
 - Next integration: hook heartbeat driver to LED/haptics, add error banners when peripherals fail.
 
