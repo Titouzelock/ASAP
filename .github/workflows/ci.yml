@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build and test ASAP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install -U platformio
+
+      - name: Build STM32 firmware (detector)
+        run: pio run -e detector
+
+      - name: Build STM32 firmware (beacon)
+        run: pio run -e beacon
+
+      - name: Build STM32 firmware (artifact)
+        run: pio run -e artifact
+
+      - name: Build STM32 firmware (anomaly)
+        run: pio run -e anomaly
+
+      - name: Run unit tests (native env)
+        run: pio test -e native
