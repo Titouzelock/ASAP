@@ -27,6 +27,9 @@ enum class FrameKind : uint8_t {
   Boot,
   Heartbeat,
   Status,
+  Menu,         // in-menu navigation frames
+  MainAnomaly,  // primary anomaly HUD
+  MainTracking, // primary tracking HUD
 };
 
 // Represents one line of text with its font and vertical position.
@@ -38,12 +41,23 @@ struct DisplayLine {
 };
 
 // Frame container describing everything needed to render a screen update.
+// This struct abstracts the logical page content (text lines, overlays, and
+// optional widgets) from the hardware/native drawing implementation.
 struct DisplayFrame {
   static constexpr uint8_t kMaxLines = 3;
   DisplayLine lines[kMaxLines];  // ordered list of text lines to draw
   uint8_t lineCount;             // number of valid entries in lines[]
   bool spinnerActive;            // true when this frame wants an activity hint
   uint8_t spinnerIndex;          // active spinner segment (0..3) when enabled
+  // UI affordances
+  bool showMenuTag;              // draw "MENU" tag at top-right when true
+  // Optional horizontal progress bar (used by Anomaly main page)
+  bool progressBarEnabled;       // render a progress bar when true
+  uint16_t progressX;            // bar left x
+  uint16_t progressY;            // bar top y
+  uint16_t progressWidth;        // bar width in pixels
+  uint16_t progressHeight;       // bar height in pixels
+  uint8_t progressPercent;       // 0..100 fill percentage
 };
 
 // Factory helpers for the pre-defined display states.
@@ -51,6 +65,15 @@ DisplayFrame makeBootFrame(const char* versionText);
 DisplayFrame makeHeartbeatFrame(uint32_t uptimeMs);
 DisplayFrame makeStatusFrame(const char* line1, const char* line2);
 DisplayFrame makeJoystickFrame(asap::input::JoyAction action);
+
+// Menu and main-page helpers
+DisplayFrame makeMenuRootFrame(uint8_t selectedIndex);
+DisplayFrame makeMenuTrackingFrame(uint8_t trackingId);
+DisplayFrame makeMenuAnomalyFrame();
+DisplayFrame makeAnomalyMainFrame(uint8_t percent, bool showMenuTag = false);
+DisplayFrame makeTrackingMainFrame(uint8_t trackingId,
+                                   int16_t rssiAvgDbm,
+                                   bool showMenuTag = false);
 
 // SPI pin mapping used by the SSD1322 display.
 struct DisplayPins {
@@ -72,6 +95,9 @@ class DetectorDisplay {
   void showStatus(const char* line1, const char* line2);  // generic status UI
   void showJoystick(asap::input::JoyAction action);        // joystick debug UI
 
+  // Render a custom frame produced by the factory helpers above.
+  void renderCustom(const DisplayFrame& frame, FrameKind kind);
+
   const DisplayFrame& lastFrame() const { return lastFrame_; }  // for debugging
   FrameKind lastFrameKind() const { return lastKind_; }         // track frame type
   uint32_t beginCount() const { return beginCalls_; }           // begin() calls seen
@@ -80,6 +106,8 @@ class DetectorDisplay {
   void renderFrame(const DisplayFrame& frame);                 // send frame to OLED
   void drawSpinner(uint8_t activeIndex, uint16_t cx, uint16_t cy);  // spinner helper
   void drawCentered(const char* text, uint16_t y);             // center text on x-axis
+  void drawMenuTag();                                          // draw top-right label
+  void drawProgressBar(const DisplayFrame& frame);             // progress bar helper
 
   DisplayPins pins_;                                           // cached wiring info
   U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2_;                   // U8g2 driver instance
@@ -108,6 +136,9 @@ class DetectorDisplay {
   const std::vector<uint8_t>& pixelBuffer() const { return pixelBuffer_; }
   bool writeSnapshot(const char* filePath) const;  // dump buffer to a PGM file
 
+  // Render a custom frame produced by the factory helpers above.
+  void renderCustom(const DisplayFrame& frame, FrameKind kind);
+
  private:
   void renderFrame(const DisplayFrame& frame, FrameKind kind);
   void clearBuffer(uint8_t value = 0);
@@ -117,6 +148,9 @@ class DetectorDisplay {
   void drawChar(char ch, int16_t x, int16_t baseline, uint8_t scale);
   int16_t measureTextWidth(const char* text, uint8_t scale) const;
   void setPixel(int16_t x, int16_t y, uint8_t value);
+  void drawMenuTag();
+  void drawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+  void fillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 
   DisplayPins pins_;            // captured wiring (not used but kept for parity)
   bool initialized_;            // mock state flag mirroring hardware path

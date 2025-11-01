@@ -30,6 +30,7 @@ void RemoveIfExists(const std::filesystem::path& path) {
 #endif
 #include <asap/display/DetectorDisplay.h>  // display driver under test
 #include <asap/input/Joystick.h>
+#include <asap/ui/UIController.h>
 
 using asap::display::DetectorDisplay;
 using asap::display::DisplayFrame;
@@ -190,6 +191,69 @@ void test_snapshot_export_creates_pgm(void) {
 }
 #endif  // ARDUINO
 
+#ifndef ARDUINO
+// End-to-end UI navigation snapshots with ordered filenames.
+void test_ui_menu_navigation_snapshots(void) {
+  using asap::ui::UIController;
+  using asap::input::JoyAction;
+
+  DetectorDisplay display(kDummyPins);
+  TEST_ASSERT_TRUE(display.begin());
+  UIController ui(display);
+
+  int snap = 0;
+  auto Save = [&](const char* name) {
+    char fname[64];
+    std::snprintf(fname, sizeof(fname), "%03d_%s.pgm", ++snap, name);
+    const auto path = SnapshotPath(fname);
+    RemoveIfExists(path);
+    TEST_ASSERT_TRUE(display.writeSnapshot(path.string().c_str()));
+  };
+
+  // Boot to anomaly page with bar at 0%, then 50%, then 100%.
+  ui.setAnomalyStrength(0);
+  ui.onTick(0, {/*centerDown=*/false, JoyAction::Neutral});
+  Save("anomaly_0");
+
+  ui.setAnomalyStrength(50);
+  ui.onTick(50, {/*centerDown=*/false, JoyAction::Neutral});
+  Save("anomaly_50");
+
+  ui.setAnomalyStrength(100);
+  ui.onTick(100, {/*centerDown=*/false, JoyAction::Neutral});
+  Save("anomaly_100");
+
+  // Enter menu via long-press (1000ms center hold).
+  ui.onTick(2000, {/*centerDown=*/true, JoyAction::Neutral});
+  ui.onTick(3000, {/*centerDown=*/true, JoyAction::Neutral});
+  Save("menu_root");
+
+  // Navigate to Tracking, enter, confirm to switch main mode.
+  ui.onTick(3100, {/*centerDown=*/false, JoyAction::Down});
+  Save("menu_sel_tracking");
+
+  ui.onTick(3200, {/*centerDown=*/false, JoyAction::Click}); // enter tracking page
+  Save("menu_tracking");
+
+  ui.onTick(3300, {/*centerDown=*/false, JoyAction::Click}); // confirm & exit
+  Save("main_tracking");
+
+  // Re-enter menu and navigate to CONFIG; stop inside config page.
+  ui.onTick(5000, {/*centerDown=*/true, JoyAction::Neutral});
+  ui.onTick(6000, {/*centerDown=*/true, JoyAction::Neutral});
+  Save("menu_root_from_tracking");
+
+  ui.onTick(6100, {/*centerDown=*/false, JoyAction::Down}); // select TRACKING
+  Save("menu_sel_tracking2");
+
+  ui.onTick(6200, {/*centerDown=*/false, JoyAction::Down}); // select CONFIG
+  Save("menu_sel_config");
+
+  ui.onTick(6300, {/*centerDown=*/false, JoyAction::Click}); // enter CONFIG
+  Save("menu_config");
+}
+#endif  // ARDUINO
+
 int main(int argc, char** argv) {
   (void)argc;
   (void)argv;
@@ -200,6 +264,7 @@ int main(int argc, char** argv) {
   RUN_TEST(test_status_frame_handles_empty_second_line);
 #ifndef ARDUINO
   RUN_TEST(test_snapshot_export_creates_pgm);
+  RUN_TEST(test_ui_menu_navigation_snapshots);
 #endif
   // Joystick frame tests
   {
@@ -228,3 +293,4 @@ int main(int argc, char** argv) {
   }
   return UNITY_END();
 }
+

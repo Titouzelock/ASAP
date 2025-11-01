@@ -2,6 +2,7 @@
 
 #include <asap/display/DetectorDisplay.h>  // SSD1322 display driver abstraction
 #include <asap/input/Joystick.h>          // JoyAction for debug page
+#include <asap/ui/UIController.h>         // UI state machine
 
 using asap::display::DetectorDisplay;
 using asap::display::DisplayPins;
@@ -19,6 +20,7 @@ constexpr uint32_t kHeartbeatIntervalMs = 250;  // refresh cadence for UI/serial
 
 DetectorDisplay detectorDisplay(kDisplayPins);  // global display instance
 uint32_t lastHeartbeat = 0;                     // last time the heartbeat ran
+asap::ui::UIController ui(detectorDisplay);     // UI controller
 
 }  // namespace
 
@@ -38,11 +40,11 @@ void loop() {
   const uint32_t now = millis();  // current uptime snapshot
   if (now - lastHeartbeat >= kHeartbeatIntervalMs) {
     lastHeartbeat = now;
-    SerialUSB.println("tick");              // placeholder heartbeat log
-    detectorDisplay.drawHeartbeatFrame(now);  // idle HUD
+    SerialUSB.println("tick");  // placeholder heartbeat log
 
-    // Joystick debug page (temporary): render current action word.
-    // In absence of hardware driver here, this will stay NEUTRAL.
-    detectorDisplay.showJoystick(asap::input::JoyAction::Neutral);
+    // TODO: Read actual joystick hardware states.
+    const bool centerDown = false;  // placeholder until hardware driver is wired
+    const asap::input::JoyAction action = asap::input::JoyAction::Neutral;
+    ui.onTick(now, {centerDown, action});
   }
 }

@@ -85,9 +85,11 @@ struct GlyphDef {
   std::array<uint8_t, kGlyphHeight> rows;
 };
 
-constexpr std::array<GlyphDef, 40> kGlyphTable = {{
+// 5x7 ASCII glyphs used by the native renderer. Add entries as UI grows.
+constexpr std::array<GlyphDef, 41> kGlyphTable = {{
     {' ', {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
     {'.', {0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x06}},
+    {'>', {0x01, 0x02, 0x04, 0x08, 0x04, 0x02, 0x01}},  // menu cursor caret
     {'0', {0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E}},
     {'1', {0x04, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E}},
     {'2', {0x0E, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1F}},
@@ -240,6 +242,134 @@ DisplayFrame makeJoystickFrame(asap::input::JoyAction action) {
   return frame;
 }
 
+// Root menu with three items and a selection caret ('>').
+DisplayFrame makeMenuRootFrame(uint8_t selectedIndex) {
+  DisplayFrame frame{};
+  frame.lineCount = 0;
+  frame.spinnerActive = false;
+  frame.spinnerIndex = 0;
+  frame.showMenuTag = true;
+
+  const char* items[3] = {"ANOMALY", "TRACKING", "CONFIG"};
+  const uint16_t ys[3] = {20, 38, 56};
+  for (uint8_t i = 0; i < 3 && frame.lineCount < DisplayFrame::kMaxLines; ++i) {
+    DisplayLine& line = frame.lines[frame.lineCount++];
+    // Prefix selected item with caret '>' for clarity in both renderers
+    if (i == selectedIndex) {
+      copyText(line.text, DisplayLine::kMaxLineLength, "> ");
+    } else {
+      copyText(line.text, DisplayLine::kMaxLineLength, "  ");
+    }
+    appendText(line.text, DisplayLine::kMaxLineLength, items[i]);
+    line.font = FontStyle::Body;
+    line.y = ys[i];
+  }
+  return frame;
+}
+
+// Tracking menu page: adjust ID with LEFT/RIGHT, Click to confirm.
+DisplayFrame makeMenuTrackingFrame(uint8_t trackingId) {
+  DisplayFrame frame{};
+  frame.lineCount = 0;
+  frame.spinnerActive = false;
+  frame.spinnerIndex = 0;
+  frame.showMenuTag = true;
+
+  DisplayLine& title = frame.lines[frame.lineCount++];
+  copyText(title.text, DisplayLine::kMaxLineLength, "TRACKING");
+  title.font = FontStyle::Body;
+  title.y = 20;
+
+  DisplayLine& idLine = frame.lines[frame.lineCount++];
+  copyText(idLine.text, DisplayLine::kMaxLineLength, "ID ");
+  // format 3-digit id
+  char idBuf[4];
+  idBuf[0] = static_cast<char>('0' + (trackingId / 100U) % 10U);
+  idBuf[1] = static_cast<char>('0' + (trackingId / 10U) % 10U);
+  idBuf[2] = static_cast<char>('0' + (trackingId % 10U));
+  idBuf[3] = '\0';
+  appendText(idLine.text, DisplayLine::kMaxLineLength, idBuf);
+  idLine.font = FontStyle::Body;
+  idLine.y = 38;
+
+  DisplayLine& hint = frame.lines[frame.lineCount++];
+  // Avoid '=' since the tiny glyph set may not include it; keep text clean
+  copyText(hint.text, DisplayLine::kMaxLineLength, "CLICK OK");
+  hint.font = FontStyle::Body;
+  hint.y = 56;
+  return frame;
+}
+
+// Anomaly menu page: simple confirmation to switch main mode.
+DisplayFrame makeMenuAnomalyFrame() {
+  DisplayFrame frame{};
+  frame.lineCount = 0;
+  frame.spinnerActive = false;
+  frame.spinnerIndex = 0;
+  frame.showMenuTag = true;
+
+  DisplayLine& title = frame.lines[frame.lineCount++];
+  copyText(title.text, DisplayLine::kMaxLineLength, "ANOMALY");
+  title.font = FontStyle::Body;
+  title.y = 28;
+
+  DisplayLine& hint = frame.lines[frame.lineCount++];
+  // Avoid '=' since the tiny glyph set may not include it; keep text clean
+  copyText(hint.text, DisplayLine::kMaxLineLength, "CLICK OK");
+  hint.font = FontStyle::Body;
+  hint.y = 48;
+  return frame;
+}
+
+// Anomaly main page with 15px-tall bar across the width, offset from bottom.
+DisplayFrame makeAnomalyMainFrame(uint8_t percent, bool showMenuTag) {
+  DisplayFrame frame{};
+  frame.lineCount = 0;
+  frame.spinnerActive = false;
+  frame.spinnerIndex = 0;
+  frame.showMenuTag = showMenuTag;
+  frame.progressBarEnabled = true;
+  frame.progressX = 0;
+  frame.progressWidth = kDisplayWidth;
+  frame.progressHeight = 15;
+  frame.progressY = static_cast<uint16_t>(kDisplayHeight - frame.progressHeight - 1);
+  frame.progressPercent = percent;
+  return frame;
+}
+
+// Tracking main page: show ID and averaged RSSI; no bar for now.
+DisplayFrame makeTrackingMainFrame(uint8_t trackingId,
+                                   int16_t rssiAvgDbm,
+                                   bool showMenuTag) {
+  DisplayFrame frame{};
+  frame.lineCount = 0;
+  frame.spinnerActive = false;
+  frame.spinnerIndex = 0;
+  frame.showMenuTag = showMenuTag;
+
+  DisplayLine& line1 = frame.lines[frame.lineCount++];
+  copyText(line1.text, DisplayLine::kMaxLineLength, "TRACK ");
+  appendNumber(line1.text, DisplayLine::kMaxLineLength, trackingId);
+  line1.font = FontStyle::Body;
+  line1.y = 20;
+
+  DisplayLine& line2 = frame.lines[frame.lineCount++];
+  copyText(line2.text, DisplayLine::kMaxLineLength, "RSSI ");
+  // format signed RSSI like -85dBm
+  if (rssiAvgDbm < 0) {
+    appendText(line2.text, DisplayLine::kMaxLineLength, "-");
+    appendNumber(line2.text, DisplayLine::kMaxLineLength,
+                 static_cast<uint32_t>(-rssiAvgDbm));
+  } else {
+    appendNumber(line2.text, DisplayLine::kMaxLineLength,
+                 static_cast<uint32_t>(rssiAvgDbm));
+  }
+  appendText(line2.text, DisplayLine::kMaxLineLength, "dBm");
+  line2.font = FontStyle::Body;
+  line2.y = 52;
+  return frame;
+}
+
 #ifdef ARDUINO
 
 #include <SPI.h>  // Arduino SPI helpers for the STM32 core
@@ -314,6 +444,14 @@ void DetectorDisplay::showJoystick(asap::input::JoyAction action) {
   renderFrame(frame);
 }
 
+void DetectorDisplay::renderCustom(const DisplayFrame& frame, FrameKind kind) {
+  if (!initialized_) {
+    return;
+  }
+  lastKind_ = kind;
+  renderFrame(frame);
+}
+
 void DetectorDisplay::renderFrame(const DisplayFrame& frame) {
   lastFrame_ = frame;
 
@@ -332,6 +470,14 @@ void DetectorDisplay::renderFrame(const DisplayFrame& frame) {
 
   if (frame.spinnerActive) {
     drawSpinner(frame.spinnerIndex, kDisplayWidth / 2U, kDisplayHeight / 2U);
+  }
+
+  if (frame.progressBarEnabled) {
+    drawProgressBar(frame);
+  }
+
+  if (frame.showMenuTag) {
+    drawMenuTag();
   }
 
   u8g2_.sendBuffer();
@@ -367,6 +513,32 @@ void DetectorDisplay::drawCentered(const char* text, uint16_t y) {
   const int16_t x =
       static_cast<int16_t>((kDisplayWidth - static_cast<uint16_t>(width)) / 2);
   u8g2_.drawStr(x, y, text);
+}
+
+void DetectorDisplay::drawMenuTag() {
+  u8g2_.setFont(u8g2_font_6x13_tr);
+  const char* tag = "MENU";
+  const int16_t width = u8g2_.getStrWidth(tag);
+  const int16_t x = static_cast<int16_t>(kDisplayWidth - static_cast<uint16_t>(width) - 2);
+  const int16_t y = 12;  // top area
+  u8g2_.drawStr(x, y, tag);
+}
+
+void DetectorDisplay::drawProgressBar(const DisplayFrame& frame) {
+  const uint16_t x = frame.progressX;
+  const uint16_t y = frame.progressY;
+  const uint16_t w = frame.progressWidth;
+  const uint16_t h = frame.progressHeight;
+  // Border
+  u8g2_.drawFrame(static_cast<int16_t>(x), static_cast<int16_t>(y),
+                  static_cast<int16_t>(w), static_cast<int16_t>(h));
+  // Fill inside border
+  const uint16_t innerW = (w > 2) ? static_cast<uint16_t>(w - 2) : 0;
+  const uint16_t fillW = static_cast<uint16_t>((static_cast<uint32_t>(innerW) * frame.progressPercent) / 100U);
+  if (h > 2 && fillW > 0) {
+    u8g2_.drawBox(static_cast<int16_t>(x + 1), static_cast<int16_t>(y + 1),
+                  static_cast<int16_t>(fillW), static_cast<int16_t>(h - 2));
+  }
 }
 
 #else  // !ARDUINO
@@ -423,6 +595,13 @@ void DetectorDisplay::showJoystick(asap::input::JoyAction action) {
   renderFrame(frame, FrameKind::Status);
 }
 
+void DetectorDisplay::renderCustom(const DisplayFrame& frame, FrameKind kind) {
+  if (!initialized_) {
+    return;
+  }
+  renderFrame(frame, kind);
+}
+
 FrameKind DetectorDisplay::lastFrameKind() const {
   return lastKind_;
 }
@@ -450,6 +629,26 @@ void DetectorDisplay::renderFrame(const DisplayFrame& frame, FrameKind kind) {
 
   if (frame.spinnerActive) {
     drawSpinner(frame.spinnerIndex, kDisplayWidth / 2U, kDisplayHeight / 2U);
+  }
+
+  if (frame.progressBarEnabled) {
+    // border
+    drawRect(frame.progressX, frame.progressY, frame.progressWidth, frame.progressHeight);
+    // inner fill
+    if (frame.progressWidth > 2 && frame.progressHeight > 2 && frame.progressPercent > 0) {
+      const uint16_t innerW = static_cast<uint16_t>(frame.progressWidth - 2);
+      const uint16_t fillW = static_cast<uint16_t>((static_cast<uint32_t>(innerW) * frame.progressPercent) / 100U);
+      if (fillW > 0) {
+        fillRect(static_cast<uint16_t>(frame.progressX + 1),
+                 static_cast<uint16_t>(frame.progressY + 1),
+                 fillW,
+                 static_cast<uint16_t>(frame.progressHeight - 2));
+      }
+    }
+  }
+
+  if (frame.showMenuTag) {
+    drawMenuTag();
   }
 }
 
@@ -611,6 +810,44 @@ void DetectorDisplay::setPixel(int16_t x, int16_t y, uint8_t value) {
       static_cast<size_t>(x);
   if (index < pixelBuffer_.size()) {
     pixelBuffer_[index] = value;
+  }
+}
+
+void DetectorDisplay::drawMenuTag() {
+  const char* tag = "MENU";
+  const uint8_t scale = 2;  // readable but compact
+  const int16_t width = measureTextWidth(tag, scale);
+  const int16_t x = static_cast<int16_t>(kDisplayWidth - width - 2);
+  const int16_t y = 14;  // near the top
+  // drawText centers around x by default; here we want left-aligned at x.
+  // Implement a simple left-aligned renderer: reuse drawChar loop.
+  std::string normalized(tag);
+  const int16_t advance = static_cast<int16_t>(kGlyphWidth * scale + scale);
+  int16_t cursorX = x;
+  const int16_t baseline = y;
+  for (char ch : normalized) {
+    drawChar(ch, cursorX, baseline, scale);
+    cursorX += advance;
+  }
+}
+
+void DetectorDisplay::drawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+  if (w == 0 || h == 0) return;
+  for (uint16_t i = 0; i < w; ++i) {
+    setPixel(static_cast<int16_t>(x + i), static_cast<int16_t>(y), 255);
+    setPixel(static_cast<int16_t>(x + i), static_cast<int16_t>(y + h - 1), 255);
+  }
+  for (uint16_t j = 0; j < h; ++j) {
+    setPixel(static_cast<int16_t>(x), static_cast<int16_t>(y + j), 255);
+    setPixel(static_cast<int16_t>(x + w - 1), static_cast<int16_t>(y + j), 255);
+  }
+}
+
+void DetectorDisplay::fillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+  for (uint16_t j = 0; j < h; ++j) {
+    for (uint16_t i = 0; i < w; ++i) {
+      setPixel(static_cast<int16_t>(x + i), static_cast<int16_t>(y + j), 255);
+    }
   }
 }
 
