@@ -1,6 +1,7 @@
 #include <Arduino.h>  // core Arduino API for STM32 targets
 
 #include <asap/display/DetectorDisplay.h>  // SSD1322 display driver abstraction
+#include <asap/input/Joystick.h>          // JoyAction for debug page
 
 using asap::display::DetectorDisplay;
 using asap::display::DisplayPins;
@@ -38,6 +39,10 @@ void loop() {
   if (now - lastHeartbeat >= kHeartbeatIntervalMs) {
     lastHeartbeat = now;
     SerialUSB.println("tick");              // placeholder heartbeat log
-    detectorDisplay.drawHeartbeatFrame(now);  // animate spinner + uptime text
+    detectorDisplay.drawHeartbeatFrame(now);  // idle HUD
+
+    // Joystick debug page (temporary): render current action word.
+    // In absence of hardware driver here, this will stay NEUTRAL.
+    detectorDisplay.showJoystick(asap::input::JoyAction::Neutral);
   }
 }

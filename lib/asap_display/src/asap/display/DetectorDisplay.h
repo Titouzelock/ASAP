@@ -10,6 +10,8 @@
 #include <vector>       // host-side buffer capture
 #endif
 
+#include <asap/input/Joystick.h>  // JoyAction for joystick debug page
+
 namespace asap::display {
 
 // Selects which font variant to use when drawing a line.
@@ -48,6 +50,7 @@ struct DisplayFrame {
 DisplayFrame makeBootFrame(const char* versionText);
 DisplayFrame makeHeartbeatFrame(uint32_t uptimeMs);
 DisplayFrame makeStatusFrame(const char* line1, const char* line2);
+DisplayFrame makeJoystickFrame(asap::input::JoyAction action);
 
 // SPI pin mapping used by the SSD1322 display.
 struct DisplayPins {
@@ -67,6 +70,7 @@ class DetectorDisplay {
   void drawBootScreen(const char* versionText); // show boot splash with version
   void drawHeartbeatFrame(uint32_t uptimeMs);   // refresh heartbeat screen
   void showStatus(const char* line1, const char* line2);  // generic status UI
+  void showJoystick(asap::input::JoyAction action);        // joystick debug UI
 
   const DisplayFrame& lastFrame() const { return lastFrame_; }  // for debugging
   FrameKind lastFrameKind() const { return lastKind_; }         // track frame type
@@ -96,6 +100,7 @@ class DetectorDisplay {
   void drawBootScreen(const char* versionText); // capture boot frame
   void drawHeartbeatFrame(uint32_t uptimeMs);   // capture heartbeat frame
   void showStatus(const char* line1, const char* line2);  // capture status frame
+  void showJoystick(asap::input::JoyAction action);        // capture joystick frame
 
   FrameKind lastFrameKind() const;              // expose type of last frame
   const DisplayFrame& lastFrame() const;        // expose captured frame contents

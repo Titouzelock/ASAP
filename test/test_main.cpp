@@ -29,6 +29,7 @@ void RemoveIfExists(const std::filesystem::path& path) {
 }  // namespace
 #endif
 #include <asap/display/DetectorDisplay.h>  // display driver under test
+#include <asap/input/Joystick.h>
 
 using asap::display::DetectorDisplay;
 using asap::display::DisplayFrame;
@@ -168,5 +169,30 @@ int main(int argc, char** argv) {
 #ifndef ARDUINO
   RUN_TEST(test_snapshot_export_creates_pgm);
 #endif
+  // Joystick frame tests
+  {
+    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Left);
+    TEST_ASSERT_EQUAL_STRING("LEFT", d.lastFrame().lines[0].text);
+  }
+  {
+    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Right);
+    TEST_ASSERT_EQUAL_STRING("RIGHT", d.lastFrame().lines[0].text);
+  }
+  {
+    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Up);
+    TEST_ASSERT_EQUAL_STRING("UP", d.lastFrame().lines[0].text);
+  }
+  {
+    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Down);
+    TEST_ASSERT_EQUAL_STRING("DOWN", d.lastFrame().lines[0].text);
+  }
+  {
+    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Click);
+    TEST_ASSERT_EQUAL_STRING("CLICK", d.lastFrame().lines[0].text);
+  }
+  {
+    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Neutral);
+    TEST_ASSERT_EQUAL_STRING("NEUTRAL", d.lastFrame().lines[0].text);
+  }
   return UNITY_END();
 }

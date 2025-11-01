@@ -216,6 +216,30 @@ DisplayFrame makeStatusFrame(const char* line1, const char* line2) {
   return frame;
 }
 
+// Build a single-word joystick debug frame.
+DisplayFrame makeJoystickFrame(asap::input::JoyAction action) {
+  const char* word = "NEUTRAL";
+  switch (action) {
+    case asap::input::JoyAction::Left: word = "LEFT"; break;
+    case asap::input::JoyAction::Right: word = "RIGHT"; break;
+    case asap::input::JoyAction::Up: word = "UP"; break;
+    case asap::input::JoyAction::Down: word = "DOWN"; break;
+    case asap::input::JoyAction::Click: word = "CLICK"; break;
+    case asap::input::JoyAction::Neutral: default: word = "NEUTRAL"; break;
+  }
+
+  DisplayFrame frame{};
+  frame.lineCount = 0;
+  frame.spinnerActive = false;
+  frame.spinnerIndex = 0;
+
+  DisplayLine& line = frame.lines[frame.lineCount++];
+  copyText(line.text, DisplayLine::kMaxLineLength, word);
+  line.font = FontStyle::Title;
+  line.y = 40;  // vertically pleasing for a single title line
+  return frame;
+}
+
 #ifdef ARDUINO
 
 #include <SPI.h>  // Arduino SPI helpers for the STM32 core
@@ -278,6 +302,15 @@ void DetectorDisplay::showStatus(const char* line1, const char* line2) {
 
   lastKind_ = FrameKind::Status;
   DisplayFrame frame = makeStatusFrame(line1, line2);
+  renderFrame(frame);
+}
+
+void DetectorDisplay::showJoystick(asap::input::JoyAction action) {
+  if (!initialized_) {
+    return;
+  }
+  lastKind_ = FrameKind::Status;
+  DisplayFrame frame = makeJoystickFrame(action);
   renderFrame(frame);
 }
 
@@ -379,6 +412,14 @@ void DetectorDisplay::showStatus(const char* line1, const char* line2) {
   }
 
   DisplayFrame frame = makeStatusFrame(line1, line2);
+  renderFrame(frame, FrameKind::Status);
+}
+
+void DetectorDisplay::showJoystick(asap::input::JoyAction action) {
+  if (!initialized_) {
+    return;
+  }
+  DisplayFrame frame = makeJoystickFrame(action);
   renderFrame(frame, FrameKind::Status);
 }
 
