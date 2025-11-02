@@ -2,11 +2,13 @@
 
 #include <stdint.h>
 
-namespace asap::input {
+namespace asap::input
+{
 
 // High-level joystick actions consumed by UI/menu code.
 // Click should represent a press-then-release edge.
-enum class JoyAction : uint8_t {
+enum class JoyAction : uint8_t
+{
   Neutral = 0,
   Left,
   Right,
@@ -16,4 +18,3 @@ enum class JoyAction : uint8_t {
 };
 
 }  // namespace asap::input
-

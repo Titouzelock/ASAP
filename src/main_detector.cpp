@@ -7,7 +7,8 @@
 using asap::display::DetectorDisplay;
 using asap::display::DisplayPins;
 
-namespace {
+namespace
+{
 
 // SPI wiring for the SSD1322 module on the detector PCB.
 constexpr DisplayPins kDisplayPins = {
@@ -24,7 +25,8 @@ asap::ui::UIController ui(detectorDisplay);     // UI controller
 
 }  // namespace
 
-void setup() {
+void setup()
+{
   SerialUSB.begin(115200);  // enable USB CDC logging
   delay(500);               // allow host to settle before printing
   SerialUSB.println("[ASAP] Detector firmware booted.");
@@ -36,9 +38,11 @@ void setup() {
   }
 }
 
-void loop() {
+void loop()
+{
   const uint32_t now = millis();  // current uptime snapshot
-  if (now - lastHeartbeat >= kHeartbeatIntervalMs) {
+  if (now - lastHeartbeat >= kHeartbeatIntervalMs)
+  {
     lastHeartbeat = now;
     SerialUSB.println("tick");  // placeholder heartbeat log
 

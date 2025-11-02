@@ -12,17 +12,20 @@
 
 #include <asap/input/Joystick.h>  // JoyAction for joystick debug page
 
-namespace asap::display {
+namespace asap::display
+{
 
 // Selects which font variant to use when drawing a line.
-enum class FontStyle : uint8_t {
+enum class FontStyle : uint8_t
+{
   Title,
   Body,
 };
 
 // Identifies which screen/profile was rendered.
 // Treat this as a UI state identifier (boot splash, heartbeat HUD, status card).
-enum class FrameKind : uint8_t {
+enum class FrameKind : uint8_t
+{
   None,
   Boot,
   Heartbeat,
@@ -33,7 +36,8 @@ enum class FrameKind : uint8_t {
 };
 
 // Represents one line of text with its font and vertical position.
-struct DisplayLine {
+struct DisplayLine
+{
   static constexpr uint8_t kMaxLineLength = 31;
   char text[kMaxLineLength + 1];  // zero-terminated copy of the text payload
   FontStyle font;                 // font style for this line
@@ -43,7 +47,8 @@ struct DisplayLine {
 // Frame container describing everything needed to render a screen update.
 // This struct abstracts the logical page content (text lines, overlays, and
 // optional widgets) from the hardware/native drawing implementation.
-struct DisplayFrame {
+struct DisplayFrame
+{
   static constexpr uint8_t kMaxLines = 3;
   DisplayLine lines[kMaxLines];  // ordered list of text lines to draw
   uint8_t lineCount;             // number of valid entries in lines[]
@@ -76,7 +81,8 @@ DisplayFrame makeTrackingMainFrame(uint8_t trackingId,
                                    bool showMenuTag = false);
 
 // SPI pin mapping used by the SSD1322 display.
-struct DisplayPins {
+struct DisplayPins
+{
   uint32_t chipSelect;   // SPI chip-select GPIO
   uint32_t dataCommand;  // data/command selector GPIO
   uint32_t reset;        // display reset GPIO
@@ -85,7 +91,8 @@ struct DisplayPins {
 #ifdef ARDUINO
 
 // Hardware-backed renderer using U8g2 on the STM32 target.
-class DetectorDisplay {
+class DetectorDisplay
+{
  public:
   explicit DetectorDisplay(const DisplayPins& pins);
 
@@ -97,6 +104,12 @@ class DetectorDisplay {
 
   // Render a custom frame produced by the factory helpers above.
   void renderCustom(const DisplayFrame& frame, FrameKind kind);
+
+  // Runtime rotation preference (180°). Affects subsequent renders.
+  // On embedded (U8g2), this uses setDisplayRotation(R2/R0).
+  // On native, the renderer flips pixel coordinates in software.
+  void setRotation180(bool enabled);
+  bool rotation180() const { return rotation180_; }
 
   const DisplayFrame& lastFrame() const { return lastFrame_; }  // for debugging
   FrameKind lastFrameKind() const { return lastKind_; }         // track frame type
@@ -115,12 +128,14 @@ class DetectorDisplay {
   DisplayFrame lastFrame_;                                    // last rendered frame record
   FrameKind lastKind_;                                        // last rendered frame type
   uint32_t beginCalls_;                                       // number of begin() invocations
+  bool rotation180_ = false;                                  // runtime rotation flag
 };
 
 #else
 
 // Native mock implementation that captures frames for testing.
-class DetectorDisplay {
+class DetectorDisplay
+{
  public:
   explicit DetectorDisplay(const DisplayPins& pins);
 
@@ -138,6 +153,10 @@ class DetectorDisplay {
 
   // Render a custom frame produced by the factory helpers above.
   void renderCustom(const DisplayFrame& frame, FrameKind kind);
+
+  // Runtime rotation preference (180°) for native renderer
+  void setRotation180(bool enabled);
+  bool rotation180() const { return rotation180_; }
 
  private:
   void renderFrame(const DisplayFrame& frame, FrameKind kind);
@@ -158,6 +177,7 @@ class DetectorDisplay {
   DisplayFrame lastFrame_;      // cached copy of most recent frame
   uint32_t beginCalls_;         // count of begin() invocations for tests
   std::vector<uint8_t> pixelBuffer_;  // grayscale copy of the current frame
+  bool rotation180_ = false;    // runtime rotation flag for mock
 };
 
 #endif  // ARDUINO

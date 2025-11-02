@@ -7,7 +7,8 @@
 #include <fstream>     // std::ifstream to inspect exported images
 #include <string>      // parse PGM header tokens
 
-namespace {
+namespace
+{
 
 std::filesystem::path SnapshotsDir() {
   static std::filesystem::path dir =
@@ -26,6 +27,16 @@ void RemoveIfExists(const std::filesystem::path& path) {
   std::filesystem::remove(path, ec);
 }
 
+// Global snapshot numbering shared across tests so filenames are ordered
+// according to the execution sequence in this file. This makes it easy to
+// visually audit that each joystick action yielded the expected screen.
+int& SnapCounter() {
+  static int counter = -1;
+  return counter;
+}
+
+// Note: SaveActionSnapshot is defined after DetectorDisplay is included
+
 }  // namespace
 #endif
 #include <asap/display/DetectorDisplay.h>  // display driver under test
@@ -42,11 +53,31 @@ namespace {
 constexpr DisplayPins kDummyPins{0, 0, 0};  // unused pins for the native mock
 }  // namespace
 
-void setUp(void) {}
-void tearDown(void) {}
+#ifndef ARDUINO
+// Snapshot helper defined after DetectorDisplay is visible.
+// Use short action mnemonics: longpress, up, down, left, right, click, neutral.
+void SaveActionSnapshot(DetectorDisplay& display, const char* action)
+{
+  int& c = SnapCounter();
+  ++c;
+  char fname[64];
+  std::snprintf(fname, sizeof(fname), "%03d_%s.pgm", c, action);
+  const auto path = SnapshotPath(fname);
+  RemoveIfExists(path);
+  TEST_ASSERT_TRUE(display.writeSnapshot(path.string().c_str()));
+}
+#endif
+
+void setUp(void)
+{
+}
+void tearDown(void)
+{
+}
 
 // BOOT screen – verifies headline/subtitle/version mapping.
-void test_boot_frame_contents(void) {
+void test_boot_frame_contents(void)
+{
   DetectorDisplay display(kDummyPins);
   display.drawBootScreen("0.1.0");
 
@@ -72,7 +103,8 @@ void test_boot_frame_contents(void) {
 }
 
 // HEARTBEAT screen – focused on idle telemetry string layout.
-void test_heartbeat_frame_updates_spinner(void) {
+void test_heartbeat_frame_updates_spinner(void)
+{
   DetectorDisplay display(kDummyPins);
   TEST_ASSERT_TRUE(display.begin());
 
@@ -92,7 +124,8 @@ void test_heartbeat_frame_updates_spinner(void) {
 }
 
 // STATUS screen – only the top line should render when the second is empty.
-void test_status_frame_handles_empty_second_line(void) {
+void test_status_frame_handles_empty_second_line(void)
+{
   DetectorDisplay display(kDummyPins);
   TEST_ASSERT_TRUE(display.begin());
 
@@ -112,7 +145,8 @@ void test_status_frame_handles_empty_second_line(void) {
 
 #ifndef ARDUINO
 // Snapshot smoke test – persists boot/heartbeat/status frames for inspection.
-void test_snapshot_export_creates_pgm(void) {
+void test_snapshot_export_creates_pgm(void)
+{
   DetectorDisplay display(kDummyPins);
   TEST_ASSERT_TRUE(display.begin());
 
@@ -192,8 +226,9 @@ void test_snapshot_export_creates_pgm(void) {
 #endif  // ARDUINO
 
 #ifndef ARDUINO
-// End-to-end UI navigation snapshots with ordered filenames.
-void test_ui_menu_navigation_snapshots(void) {
+// End-to-end UI navigation snapshots with numbered action-based filenames.
+void test_ui_menu_navigation_snapshots(void)
+{
   using asap::ui::UIController;
   using asap::input::JoyAction;
 
@@ -201,60 +236,106 @@ void test_ui_menu_navigation_snapshots(void) {
   TEST_ASSERT_TRUE(display.begin());
   UIController ui(display);
 
-  int snap = 0;
-  auto Save = [&](const char* name) {
-    char fname[64];
-    std::snprintf(fname, sizeof(fname), "%03d_%s.pgm", ++snap, name);
-    const auto path = SnapshotPath(fname);
-    RemoveIfExists(path);
-    TEST_ASSERT_TRUE(display.writeSnapshot(path.string().c_str()));
-  };
+  auto Save = [&](const char* action) { SaveActionSnapshot(display, action); };
 
   // Boot to anomaly page with bar at 0%, then 50%, then 100%.
   ui.setAnomalyStrength(0);
   ui.onTick(0, {/*centerDown=*/false, JoyAction::Neutral});
-  Save("anomaly_0");
+  Save("neutral");
 
   ui.setAnomalyStrength(50);
   ui.onTick(50, {/*centerDown=*/false, JoyAction::Neutral});
-  Save("anomaly_50");
+  Save("neutral");
 
   ui.setAnomalyStrength(100);
   ui.onTick(100, {/*centerDown=*/false, JoyAction::Neutral});
-  Save("anomaly_100");
+  Save("neutral");
 
   // Enter menu via long-press (1000ms center hold).
   ui.onTick(2000, {/*centerDown=*/true, JoyAction::Neutral});
+  Save("longpress");
   ui.onTick(3000, {/*centerDown=*/true, JoyAction::Neutral});
-  Save("menu_root");
+  Save("longpress");
 
   // Navigate to Tracking, enter, confirm to switch main mode.
   ui.onTick(3100, {/*centerDown=*/false, JoyAction::Down});
-  Save("menu_sel_tracking");
+  Save("down");
 
   ui.onTick(3200, {/*centerDown=*/false, JoyAction::Click}); // enter tracking page
-  Save("menu_tracking");
+  Save("click");
 
   ui.onTick(3300, {/*centerDown=*/false, JoyAction::Click}); // confirm & exit
-  Save("main_tracking");
+  Save("click");
 
   // Re-enter menu and navigate to CONFIG; stop inside config page.
   ui.onTick(5000, {/*centerDown=*/true, JoyAction::Neutral});
+  Save("longpress");
   ui.onTick(6000, {/*centerDown=*/true, JoyAction::Neutral});
-  Save("menu_root_from_tracking");
+  Save("longpress");
 
   ui.onTick(6100, {/*centerDown=*/false, JoyAction::Down}); // select TRACKING
-  Save("menu_sel_tracking2");
+  Save("down");
 
   ui.onTick(6200, {/*centerDown=*/false, JoyAction::Down}); // select CONFIG
-  Save("menu_sel_config");
+  Save("down");
 
   ui.onTick(6300, {/*centerDown=*/false, JoyAction::Click}); // enter CONFIG
-  Save("menu_config");
+  Save("click");
+  // Assert we are in CONFIG list and selection starts at first item
+  {
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(FrameKind::Menu), static_cast<uint8_t>(display.lastFrameKind()));
+    const DisplayFrame& f = display.lastFrame();
+    TEST_ASSERT_EQUAL_UINT8(3, f.lineCount);
+    TEST_ASSERT_EQUAL_STRING("  VERSION", f.lines[0].text); // prev wraps to last
+    TEST_ASSERT_EQUAL_STRING("> INVERT X JOYSTICK", f.lines[1].text);
+    TEST_ASSERT_EQUAL_STRING("  INVERT Y JOYSTICK", f.lines[2].text);
+  }
+
+  // In CONFIG list: move to Rotate Display (Down, Down), enter, toggle ON (Right)
+  ui.onTick(6400, {/*centerDown=*/false, JoyAction::Down});
+  Save("down");
+  ui.onTick(6500, {/*centerDown=*/false, JoyAction::Down});
+  Save("down");
+  ui.onTick(6600, {/*centerDown=*/false, JoyAction::Click});
+  Save("click");
+  // Entered Rotate Display page; should show OFF initially
+  {
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(FrameKind::Menu), static_cast<uint8_t>(display.lastFrameKind()));
+    const DisplayFrame& f = display.lastFrame();
+    TEST_ASSERT_EQUAL_STRING("ROTATE DISPLAY", f.lines[0].text);
+  }
+  ui.onTick(6700, {/*centerDown=*/false, JoyAction::Right});
+  Save("right");
+  // After toggle, rotation should be ON and text should reflect it
+  {
+    TEST_ASSERT_TRUE(display.rotation180());
+    const DisplayFrame& f = display.lastFrame();
+    TEST_ASSERT_EQUAL_STRING("ON", f.lines[1].text);
+  }
+
+  // Back to root menu (Left from leaf, then Left from config list)
+  ui.onTick(6800, {/*centerDown=*/false, JoyAction::Left});
+  Save("left");
+  ui.onTick(6900, {/*centerDown=*/false, JoyAction::Left});
+  Save("left");
+
+  // Select TRACKING (Up from CONFIG), enter, confirm to exit back to main page
+  ui.onTick(7000, {/*centerDown=*/false, JoyAction::Up});
+  Save("up");
+  ui.onTick(7100, {/*centerDown=*/false, JoyAction::Click});
+  Save("click");
+  ui.onTick(7200, {/*centerDown=*/false, JoyAction::Click});
+  Save("click");
+  // After confirm, main page should be tracking
+  {
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(FrameKind::MainTracking), static_cast<uint8_t>(display.lastFrameKind()));
+  }
 }
 #endif  // ARDUINO
 
-int main(int argc, char** argv) {
+// Removed: detailed config submenu walkthrough; simplified flow is covered in the main navigation test.
+int main(int argc, char** argv)
+{
   (void)argc;
   (void)argv;
 

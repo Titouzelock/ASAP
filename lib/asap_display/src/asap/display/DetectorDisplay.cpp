@@ -12,15 +12,18 @@
 #include <string>     // text normalization
 #endif
 
-namespace asap::display {
+namespace asap::display
+{
 
-namespace {
+namespace
+{
 
 constexpr uint16_t kDisplayWidth = 256;   // SSD1322 canvas width in pixels
 constexpr uint16_t kDisplayHeight = 64;   // SSD1322 canvas height in pixels
 
 // Determine the length of a null-terminated string up to maxLen characters.
-uint8_t findLength(const char* text, uint8_t maxLen) {
+uint8_t findLength(const char* text, uint8_t maxLen)
+{
   if (!text) {
     return 0;
   }
@@ -33,7 +36,8 @@ uint8_t findLength(const char* text, uint8_t maxLen) {
 }
 
 // Copy text into a destination buffer clamped to maxLen characters.
-void copyText(char* dest, uint8_t maxLen, const char* text) {
+void copyText(char* dest, uint8_t maxLen, const char* text)
+{
   uint8_t index = 0;
   if (text) {
     while (text[index] != '\0' && index < maxLen) {
@@ -45,7 +49,8 @@ void copyText(char* dest, uint8_t maxLen, const char* text) {
 }
 
 // Append a suffix string to the destination buffer with length protection.
-void appendText(char* dest, uint8_t maxLen, const char* suffix) {
+void appendText(char* dest, uint8_t maxLen, const char* suffix)
+{
   uint8_t length = findLength(dest, maxLen);
   if (!suffix) {
     dest[length] = '\0';
@@ -60,7 +65,8 @@ void appendText(char* dest, uint8_t maxLen, const char* suffix) {
 }
 
 // Append a positive integer to the destination buffer as decimal digits.
-void appendNumber(char* dest, uint8_t maxLen, uint32_t value) {
+void appendNumber(char* dest, uint8_t maxLen, uint32_t value)
+{
   uint8_t length = findLength(dest, maxLen);
 
   char digits[10];       // enough for 32-bit integer
@@ -86,7 +92,7 @@ struct GlyphDef {
 };
 
 // 5x7 ASCII glyphs used by the native renderer. Add entries as UI grows.
-constexpr std::array<GlyphDef, 42> kGlyphTable = {{
+constexpr std::array<GlyphDef, 44> kGlyphTable = {{
     {' ', {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
     {'.', {0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x06}},
     {'>', {0x01, 0x02, 0x04, 0x08, 0x04, 0x02, 0x01}},  // menu cursor caret
@@ -121,13 +127,16 @@ constexpr std::array<GlyphDef, 42> kGlyphTable = {{
     {'T', {0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04}},
     {'U', {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E}},
     {'W', {0x11, 0x11, 0x11, 0x15, 0x15, 0x15, 0x0A}},
+    {'V', {0x11, 0x11, 0x11, 0x11, 0x0A, 0x0A, 0x04}},
     {'X', {0x11, 0x0A, 0x04, 0x04, 0x0A, 0x11, 0x11}},
     {'Y', {0x11, 0x0A, 0x04, 0x04, 0x04, 0x04, 0x04}},
     {'Z', {0x1F, 0x02, 0x04, 0x08, 0x10, 0x10, 0x1F}},
+    {'J', {0x1F, 0x01, 0x01, 0x01, 0x11, 0x11, 0x0E}},
     {'?', {0x0E, 0x11, 0x01, 0x02, 0x04, 0x00, 0x04}},
 }};
 
-const GlyphDef* findGlyph(char ch) {
+const GlyphDef* findGlyph(char ch)
+{
   for (const auto& glyph : kGlyphTable) {
     if (glyph.ch == ch) {
       return &glyph;
@@ -141,7 +150,8 @@ const GlyphDef* findGlyph(char ch) {
 
 // Build the boot splash frame with title, subtitle, and optional FW version.
 // Compose the boot splash – static branding + optional firmware string.
-DisplayFrame makeBootFrame(const char* versionText) {
+DisplayFrame makeBootFrame(const char* versionText)
+{
   DisplayFrame frame{};
   frame.lineCount = 0;
   frame.spinnerActive = false;
@@ -171,7 +181,8 @@ DisplayFrame makeBootFrame(const char* versionText) {
 
 // Build the heartbeat frame presenting uptime and spinner state.
 // Compose the idling / heartbeat page shown while the detector is ready.
-DisplayFrame makeHeartbeatFrame(uint32_t uptimeMs) {
+DisplayFrame makeHeartbeatFrame(uint32_t uptimeMs)
+{
   DisplayFrame frame{};
   frame.lineCount = 0;
   frame.spinnerActive = false;
@@ -195,7 +206,8 @@ DisplayFrame makeHeartbeatFrame(uint32_t uptimeMs) {
 
 // Build a generic status frame with up to two lines of text.
 // Generic two-line status card (used for RF link states, alerts, etc.).
-DisplayFrame makeStatusFrame(const char* line1, const char* line2) {
+DisplayFrame makeStatusFrame(const char* line1, const char* line2)
+{
   DisplayFrame frame{};
   frame.lineCount = 0;
   frame.spinnerActive = false;
@@ -220,9 +232,11 @@ DisplayFrame makeStatusFrame(const char* line1, const char* line2) {
 }
 
 // Build a single-word joystick debug frame.
-DisplayFrame makeJoystickFrame(asap::input::JoyAction action) {
+DisplayFrame makeJoystickFrame(asap::input::JoyAction action)
+{
   const char* word = "NEUTRAL";
-  switch (action) {
+  switch (action)
+  {
     case asap::input::JoyAction::Left: word = "LEFT"; break;
     case asap::input::JoyAction::Right: word = "RIGHT"; break;
     case asap::input::JoyAction::Up: word = "UP"; break;
@@ -244,7 +258,8 @@ DisplayFrame makeJoystickFrame(asap::input::JoyAction action) {
 }
 
 // Root menu with three items and a selection caret ('>').
-DisplayFrame makeMenuRootFrame(uint8_t selectedIndex) {
+DisplayFrame makeMenuRootFrame(uint8_t selectedIndex)
+{
   DisplayFrame frame{};
   frame.lineCount = 0;
   frame.spinnerActive = false;
@@ -269,7 +284,8 @@ DisplayFrame makeMenuRootFrame(uint8_t selectedIndex) {
 }
 
 // Tracking menu page: adjust ID with LEFT/RIGHT, Click to confirm.
-DisplayFrame makeMenuTrackingFrame(uint8_t trackingId) {
+DisplayFrame makeMenuTrackingFrame(uint8_t trackingId)
+{
   DisplayFrame frame{};
   frame.lineCount = 0;
   frame.spinnerActive = false;
@@ -302,7 +318,8 @@ DisplayFrame makeMenuTrackingFrame(uint8_t trackingId) {
 }
 
 // Anomaly menu page: simple confirmation to switch main mode.
-DisplayFrame makeMenuAnomalyFrame() {
+DisplayFrame makeMenuAnomalyFrame()
+{
   DisplayFrame frame{};
   frame.lineCount = 0;
   frame.spinnerActive = false;
@@ -323,7 +340,8 @@ DisplayFrame makeMenuAnomalyFrame() {
 }
 
 // Anomaly main page with 15px-tall bar across the width, offset from bottom.
-DisplayFrame makeAnomalyMainFrame(uint8_t percent, bool showMenuTag) {
+DisplayFrame makeAnomalyMainFrame(uint8_t percent, bool showMenuTag)
+{
   DisplayFrame frame{};
   frame.lineCount = 0;
   frame.spinnerActive = false;
@@ -341,7 +359,8 @@ DisplayFrame makeAnomalyMainFrame(uint8_t percent, bool showMenuTag) {
 // Tracking main page: show ID and averaged RSSI; no bar for now.
 DisplayFrame makeTrackingMainFrame(uint8_t trackingId,
                                    int16_t rssiAvgDbm,
-                                   bool showMenuTag) {
+                                   bool showMenuTag)
+{
   DisplayFrame frame{};
   frame.lineCount = 0;
   frame.spinnerActive = false;
@@ -389,7 +408,8 @@ DetectorDisplay::DetectorDisplay(const DisplayPins& pins)
   lastFrame_.spinnerIndex = 0;
 }
 
-bool DetectorDisplay::begin() {
+bool DetectorDisplay::begin()
+{
   ++beginCalls_;
   if (initialized_) {
     return true;
@@ -402,11 +422,18 @@ bool DetectorDisplay::begin() {
   u8g2_.setFontDirection(0);
   u8g2_.clearBuffer();
 
+  // Apply runtime rotation preference if set
+  if (rotation180_)
+  {
+    u8g2_.setDisplayRotation(U8G2_R2);
+  }
+
   initialized_ = true;
   return true;
 }
 
-void DetectorDisplay::drawBootScreen(const char* versionText) {
+void DetectorDisplay::drawBootScreen(const char* versionText)
+{
   if (!initialized_ && !begin()) {
     return;
   }
@@ -416,7 +443,8 @@ void DetectorDisplay::drawBootScreen(const char* versionText) {
   renderFrame(frame);
 }
 
-void DetectorDisplay::drawHeartbeatFrame(uint32_t uptimeMs) {
+void DetectorDisplay::drawHeartbeatFrame(uint32_t uptimeMs)
+{
   if (!initialized_) {
     return;
   }
@@ -426,7 +454,8 @@ void DetectorDisplay::drawHeartbeatFrame(uint32_t uptimeMs) {
   renderFrame(frame);
 }
 
-void DetectorDisplay::showStatus(const char* line1, const char* line2) {
+void DetectorDisplay::showStatus(const char* line1, const char* line2)
+{
   if (!initialized_) {
     return;
   }
@@ -436,7 +465,8 @@ void DetectorDisplay::showStatus(const char* line1, const char* line2) {
   renderFrame(frame);
 }
 
-void DetectorDisplay::showJoystick(asap::input::JoyAction action) {
+void DetectorDisplay::showJoystick(asap::input::JoyAction action)
+{
   if (!initialized_) {
     return;
   }
@@ -445,7 +475,8 @@ void DetectorDisplay::showJoystick(asap::input::JoyAction action) {
   renderFrame(frame);
 }
 
-void DetectorDisplay::renderCustom(const DisplayFrame& frame, FrameKind kind) {
+void DetectorDisplay::renderCustom(const DisplayFrame& frame, FrameKind kind)
+{
   if (!initialized_) {
     return;
   }
@@ -453,7 +484,8 @@ void DetectorDisplay::renderCustom(const DisplayFrame& frame, FrameKind kind) {
   renderFrame(frame);
 }
 
-void DetectorDisplay::renderFrame(const DisplayFrame& frame) {
+void DetectorDisplay::renderFrame(const DisplayFrame& frame)
+{
   lastFrame_ = frame;
 
   u8g2_.clearBuffer();
@@ -486,7 +518,8 @@ void DetectorDisplay::renderFrame(const DisplayFrame& frame) {
 
 void DetectorDisplay::drawSpinner(uint8_t activeIndex,
                                   uint16_t cx,
-                                  uint16_t cy) {
+                                  uint16_t cy)
+{
   static const int8_t offsets[4][2] = {
       {0, -12},
       {12, 0},
@@ -505,7 +538,8 @@ void DetectorDisplay::drawSpinner(uint8_t activeIndex,
   }
 }
 
-void DetectorDisplay::drawCentered(const char* text, uint16_t y) {
+void DetectorDisplay::drawCentered(const char* text, uint16_t y)
+{
   if (!text) {
     return;
   }
@@ -516,7 +550,8 @@ void DetectorDisplay::drawCentered(const char* text, uint16_t y) {
   u8g2_.drawStr(x, y, text);
 }
 
-void DetectorDisplay::drawMenuTag() {
+void DetectorDisplay::drawMenuTag()
+{
   u8g2_.setFont(u8g2_font_6x13_tr);
   const char* tag = "MENU";
   const int16_t width = u8g2_.getStrWidth(tag);
@@ -525,7 +560,26 @@ void DetectorDisplay::drawMenuTag() {
   u8g2_.drawStr(x, y, tag);
 }
 
-void DetectorDisplay::drawProgressBar(const DisplayFrame& frame) {
+void DetectorDisplay::setRotation180(bool enabled)
+{
+  rotation180_ = enabled;
+  if (!initialized_)
+  {
+    return;
+  }
+  // U8g2 supports runtime rotation changes; switch immediately
+  if (rotation180_)
+  {
+    u8g2_.setDisplayRotation(U8G2_R2);
+  }
+  else
+  {
+    u8g2_.setDisplayRotation(U8G2_R0);
+  }
+}
+
+void DetectorDisplay::drawProgressBar(const DisplayFrame& frame)
+{
   const uint16_t x = frame.progressX;
   const uint16_t y = frame.progressY;
   const uint16_t w = frame.progressWidth;
@@ -555,13 +609,15 @@ DetectorDisplay::DetectorDisplay(const DisplayPins& pins)
   lastFrame_.spinnerIndex = 0;
 }
 
-bool DetectorDisplay::begin() {
+bool DetectorDisplay::begin()
+{
   ++beginCalls_;
   initialized_ = true;
   return true;
 }
 
-void DetectorDisplay::drawBootScreen(const char* versionText) {
+void DetectorDisplay::drawBootScreen(const char* versionText)
+{
   if (!initialized_ && !begin()) {
     return;
   }
@@ -570,7 +626,8 @@ void DetectorDisplay::drawBootScreen(const char* versionText) {
   renderFrame(frame, FrameKind::Boot);
 }
 
-void DetectorDisplay::drawHeartbeatFrame(uint32_t uptimeMs) {
+void DetectorDisplay::drawHeartbeatFrame(uint32_t uptimeMs)
+{
   if (!initialized_) {
     return;
   }
@@ -579,7 +636,8 @@ void DetectorDisplay::drawHeartbeatFrame(uint32_t uptimeMs) {
   renderFrame(frame, FrameKind::Heartbeat);
 }
 
-void DetectorDisplay::showStatus(const char* line1, const char* line2) {
+void DetectorDisplay::showStatus(const char* line1, const char* line2)
+{
   if (!initialized_) {
     return;
   }
@@ -588,7 +646,8 @@ void DetectorDisplay::showStatus(const char* line1, const char* line2) {
   renderFrame(frame, FrameKind::Status);
 }
 
-void DetectorDisplay::showJoystick(asap::input::JoyAction action) {
+void DetectorDisplay::showJoystick(asap::input::JoyAction action)
+{
   if (!initialized_) {
     return;
   }
@@ -596,26 +655,31 @@ void DetectorDisplay::showJoystick(asap::input::JoyAction action) {
   renderFrame(frame, FrameKind::Status);
 }
 
-void DetectorDisplay::renderCustom(const DisplayFrame& frame, FrameKind kind) {
+void DetectorDisplay::renderCustom(const DisplayFrame& frame, FrameKind kind)
+{
   if (!initialized_) {
     return;
   }
   renderFrame(frame, kind);
 }
 
-FrameKind DetectorDisplay::lastFrameKind() const {
+FrameKind DetectorDisplay::lastFrameKind() const
+{
   return lastKind_;
 }
 
-const DisplayFrame& DetectorDisplay::lastFrame() const {
+const DisplayFrame& DetectorDisplay::lastFrame() const
+{
   return lastFrame_;
 }
 
-uint32_t DetectorDisplay::beginCount() const {
+uint32_t DetectorDisplay::beginCount() const
+{
   return beginCalls_;
 }
 
-void DetectorDisplay::renderFrame(const DisplayFrame& frame, FrameKind kind) {
+void DetectorDisplay::renderFrame(const DisplayFrame& frame, FrameKind kind)
+{
   lastFrame_ = frame;
   lastKind_ = kind;
 
@@ -653,13 +717,15 @@ void DetectorDisplay::renderFrame(const DisplayFrame& frame, FrameKind kind) {
   }
 }
 
-void DetectorDisplay::clearBuffer(uint8_t value) {
+void DetectorDisplay::clearBuffer(uint8_t value)
+{
   std::fill(pixelBuffer_.begin(), pixelBuffer_.end(), value);
 }
 
 void DetectorDisplay::drawSpinner(uint8_t activeIndex,
                                   uint16_t cx,
-                                  uint16_t cy) {
+                                  uint16_t cy)
+{
   static const int8_t offsets[4][2] = {
       {0, -12},
       {12, 0},
@@ -696,7 +762,8 @@ void DetectorDisplay::drawSpinner(uint8_t activeIndex,
 
 void DetectorDisplay::drawCentered(const char* text,
                                    FontStyle font,
-                                   uint16_t y) {
+                                   uint16_t y)
+{
   if (!text) {
     return;
   }
@@ -705,7 +772,8 @@ void DetectorDisplay::drawCentered(const char* text,
   drawText(text, y, scale > 0 ? scale : 1);
 }
 
-void DetectorDisplay::drawText(const char* text, uint16_t baseline, uint8_t scale) {
+void DetectorDisplay::drawText(const char* text, uint16_t baseline, uint8_t scale)
+{
   if (!text || scale == 0) {
     return;
   }
@@ -743,7 +811,8 @@ void DetectorDisplay::drawText(const char* text, uint16_t baseline, uint8_t scal
 void DetectorDisplay::drawChar(char ch,
                                int16_t x,
                                int16_t baseline,
-                               uint8_t scale) {
+                               uint8_t scale)
+{
   const GlyphDef* glyph = findGlyph(ch);
   if (!glyph) {
     glyph = findGlyph('?');
@@ -775,7 +844,8 @@ void DetectorDisplay::drawChar(char ch,
 }
 
 int16_t DetectorDisplay::measureTextWidth(const char* text,
-                                          uint8_t scale) const {
+                                          uint8_t scale) const
+{
   if (!text || scale == 0) {
     return 0;
   }
@@ -797,7 +867,8 @@ int16_t DetectorDisplay::measureTextWidth(const char* text,
   return static_cast<int16_t>(advance * count - scale);
 }
 
-void DetectorDisplay::setPixel(int16_t x, int16_t y, uint8_t value) {
+void DetectorDisplay::setPixel(int16_t x, int16_t y, uint8_t value)
+{
   if (x < 0 || y < 0) {
     return;
   }
@@ -806,15 +877,26 @@ void DetectorDisplay::setPixel(int16_t x, int16_t y, uint8_t value) {
     return;
   }
 
+  // Apply runtime 180° rotation by mapping coordinates.
+  // Hardware path uses U8g2 rotation; the native path emulates it in software.
+  int16_t rx = x;
+  int16_t ry = y;
+  if (rotation180_)
+  {
+    rx = static_cast<int16_t>(kDisplayWidth - 1 - x);
+    ry = static_cast<int16_t>(kDisplayHeight - 1 - y);
+  }
+
   const size_t index =
-      static_cast<size_t>(y) * static_cast<size_t>(kDisplayWidth) +
-      static_cast<size_t>(x);
+      static_cast<size_t>(ry) * static_cast<size_t>(kDisplayWidth) +
+      static_cast<size_t>(rx);
   if (index < pixelBuffer_.size()) {
     pixelBuffer_[index] = value;
   }
 }
 
-void DetectorDisplay::drawMenuTag() {
+void DetectorDisplay::drawMenuTag()
+{
   const char* tag = "MENU";
   const uint8_t scale = 2;  // readable but compact
   const int16_t width = measureTextWidth(tag, scale);
@@ -832,7 +914,8 @@ void DetectorDisplay::drawMenuTag() {
   }
 }
 
-void DetectorDisplay::drawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+void DetectorDisplay::drawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
+{
   if (w == 0 || h == 0) return;
   for (uint16_t i = 0; i < w; ++i) {
     setPixel(static_cast<int16_t>(x + i), static_cast<int16_t>(y), 255);
@@ -844,7 +927,8 @@ void DetectorDisplay::drawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
   }
 }
 
-void DetectorDisplay::fillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+void DetectorDisplay::fillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
+{
   for (uint16_t j = 0; j < h; ++j) {
     for (uint16_t i = 0; i < w; ++i) {
       setPixel(static_cast<int16_t>(x + i), static_cast<int16_t>(y + j), 255);
@@ -852,7 +936,8 @@ void DetectorDisplay::fillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
   }
 }
 
-bool DetectorDisplay::writeSnapshot(const char* filePath) const {
+bool DetectorDisplay::writeSnapshot(const char* filePath) const
+{
   if (!filePath || filePath[0] == '\0' || pixelBuffer_.empty()) {
     return false;
   }
@@ -866,6 +951,11 @@ bool DetectorDisplay::writeSnapshot(const char* filePath) const {
   out.write(reinterpret_cast<const char*>(pixelBuffer_.data()),
             static_cast<std::streamsize>(pixelBuffer_.size()));
   return static_cast<bool>(out);
+}
+
+void DetectorDisplay::setRotation180(bool enabled)
+{
+  rotation180_ = enabled;
 }
 
 #endif  // ARDUINO
