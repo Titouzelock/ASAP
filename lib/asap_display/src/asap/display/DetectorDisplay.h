@@ -69,7 +69,7 @@ struct DisplayFrame
 DisplayFrame makeBootFrame(const char* versionText);
 DisplayFrame makeHeartbeatFrame(uint32_t uptimeMs);
 DisplayFrame makeStatusFrame(const char* line1, const char* line2);
-DisplayFrame makeJoystickFrame(asap::input::JoyAction action);
+DisplayFrame makeJoystickFrame(::asap::input::JoyAction action);
 
 // Menu and main-page helpers
 DisplayFrame makeMenuRootFrame(uint8_t selectedIndex);
@@ -100,7 +100,7 @@ class DetectorDisplay
   void drawBootScreen(const char* versionText); // show boot splash with version
   void drawHeartbeatFrame(uint32_t uptimeMs);   // refresh heartbeat screen
   void showStatus(const char* line1, const char* line2);  // generic status UI
-  void showJoystick(asap::input::JoyAction action);        // joystick debug UI
+  void showJoystick(::asap::input::JoyAction action);       // joystick debug UI
 
   // Render a custom frame produced by the factory helpers above.
   void renderCustom(const DisplayFrame& frame, FrameKind kind);
@@ -151,7 +151,7 @@ class DetectorDisplay
   void drawBootScreen(const char* versionText); // capture boot frame
   void drawHeartbeatFrame(uint32_t uptimeMs);   // capture heartbeat frame
   void showStatus(const char* line1, const char* line2);  // capture status frame
-  void showJoystick(asap::input::JoyAction action);        // capture joystick frame
+  void showJoystick(::asap::input::JoyAction action);       // capture joystick frame
 
   FrameKind lastFrameKind() const;              // expose type of last frame
   const DisplayFrame& lastFrame() const;        // expose captured frame contents
