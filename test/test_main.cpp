@@ -144,7 +144,7 @@ void test_status_frame_handles_empty_second_line(void)
 }
 
 #ifndef ARDUINO
-// Snapshot smoke test – persists boot/heartbeat/status frames for inspection.
+// Snapshot smoke test — persists boot/heartbeat/status frames for inspection.
 void test_snapshot_export_creates_pgm(void)
 {
   DetectorDisplay display(kDummyPins);
@@ -226,6 +226,27 @@ void test_snapshot_export_creates_pgm(void)
 #endif  // ARDUINO
 
 #ifndef ARDUINO
+// Anomaly HUD snapshot with per-indicator stages -, I, II, III for review
+void test_anomaly_hud_stage_snapshots(void)
+{
+  using asap::ui::UIController;
+  using asap::input::JoyAction;
+
+  DetectorDisplay display(kDummyPins);
+  TEST_ASSERT_TRUE(display.begin());
+  UIController ui(display);
+
+  // Configure distinct stages and exposure percentages
+  ui.setAnomalyExposure(10, 35, 65, 5);   // percents within current turn
+  ui.setAnomalyStage(0, 1, 2, 3);         // -, I, II, III
+
+  // Render initial anomaly page
+  ui.onTick(0, {/*centerDown=*/false, JoyAction::Neutral});
+  SaveActionSnapshot(display, "anomaly_hud_stages_init");
+}
+#endif  // ARDUINO
+
+#ifndef ARDUINO
 // End-to-end UI navigation snapshots with numbered action-based filenames.
 void test_ui_menu_navigation_snapshots(void)
 {
@@ -239,6 +260,10 @@ void test_ui_menu_navigation_snapshots(void)
   auto Save = [&](const char* action) { SaveActionSnapshot(display, action); };
 
   // Boot to anomaly page with bar at 0%, then 50%, then 100%.
+  // Configure anomaly HUD to show all four stages on first render:
+  // rad: '-', therm: 'I', chem: 'II', psy: 'III'
+  ui.setAnomalyExposure(25, 50, 75, 100);
+  ui.setAnomalyStage(0, 1, 2, 3);
   ui.setAnomalyStrength(0);
   ui.onTick(0, {/*centerDown=*/false, JoyAction::Neutral});
   Save("neutral");
@@ -345,6 +370,7 @@ int main(int argc, char** argv)
   RUN_TEST(test_status_frame_handles_empty_second_line);
 #ifndef ARDUINO
   RUN_TEST(test_snapshot_export_creates_pgm);
+  RUN_TEST(test_anomaly_hud_stage_snapshots);
   RUN_TEST(test_ui_menu_navigation_snapshots);
 #endif
   // Joystick frame tests

@@ -233,7 +233,7 @@ DisplayFrame makeStatusFrame(const char* line1, const char* line2)
 }
 
 // Build a single-word joystick debug frame.
-DisplayFrame makeJoystickFrame(asap::input::JoyAction action)
+DisplayFrame makeJoystickFrame(::asap::input::JoyAction action)
 {
   const char* word = "NEUTRAL";
   switch (action)
@@ -467,7 +467,7 @@ void DetectorDisplay::showStatus(const char* line1, const char* line2)
   renderFrame(frame);
 }
 
-void DetectorDisplay::showJoystick(asap::input::JoyAction action)
+void DetectorDisplay::showJoystick(::asap::input::JoyAction action)
 {
   if (!initialized_) {
     return;
@@ -605,8 +605,9 @@ static void DrawArcU8g2(U8G2& u8g2,
   const float step = 3.0f * 3.1415926f / 180.0f;  // ~3 degrees
   for (float a = 0.0f; a <= end; a += step)
   {
-    const int16_t x = static_cast<int16_t>(cx + radius * std::cos(a));
-    const int16_t y = static_cast<int16_t>(cy + radius * std::sin(a));
+    const float theta = a - 3.1415926f/2.0f; // start at north, sweep clockwise
+    const int16_t x = static_cast<int16_t>(cx + radius * std::cos(theta));
+    const int16_t y = static_cast<int16_t>(cy + radius * std::sin(theta));
     for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
     {
       u8g2.drawPixel(x, static_cast<int16_t>(y + t));
@@ -636,10 +637,9 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
 
   for (const auto& it : items)
   {
-    // Outer ring and progress
+    // Progress arc only (no static ring)
     const uint8_t radius = 18; // surrounds 30x30 icon with margin
     const uint8_t thick = 3;
-    u8g2_.drawCircle(it.cx, it.cy, radius);
     DrawArcU8g2(u8g2_, it.cx, it.cy, radius, thick, it.p);
 
     // Icon: XBM asset centered (16x16 placeholder)
@@ -651,11 +651,11 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
     else if (it.icon[0] == 'P') bits = asap::display::assets::kIconPsy30x30;
     u8g2_.drawXBMP(ix, iy, asap::display::assets::kIconW, asap::display::assets::kIconH, bits);
 
-    // Stage label centered below ring
+    // Stage label centered below ring (5 px lower)
     u8g2_.setFont(u8g2_font_6x10_tr);
     const char* roman = RomanFor(it.s);
     const int16_t rw = u8g2_.getStrWidth(roman);
-    u8g2_.drawStr(static_cast<int16_t>(it.cx - rw / 2), static_cast<int16_t>(it.cy + radius + 8), roman);
+    u8g2_.drawStr(static_cast<int16_t>(it.cx - rw / 2), static_cast<int16_t>(it.cy + radius + 13), roman);
   }
 
   u8g2_.sendBuffer();
@@ -729,7 +729,7 @@ void DetectorDisplay::showStatus(const char* line1, const char* line2)
   renderFrame(frame, FrameKind::Status);
 }
 
-void DetectorDisplay::showJoystick(asap::input::JoyAction action)
+void DetectorDisplay::showJoystick(::asap::input::JoyAction action)
 {
   if (!initialized_) {
     return;
@@ -1052,8 +1052,9 @@ void DetectorDisplay::drawArc(int16_t cx,
   const float step = 3.0f * 3.1415926f / 180.0f;  // ~3 degrees
   for (float a = 0.0f; a <= end; a += step)
   {
-    const int16_t x = static_cast<int16_t>(cx + radius * std::cos(a));
-    const int16_t y = static_cast<int16_t>(cy + radius * std::sin(a));
+    const float theta = a - 3.1415926f/2.0f; // start at north
+    const int16_t x = static_cast<int16_t>(cx + radius * std::cos(theta));
+    const int16_t y = static_cast<int16_t>(cy + radius * std::sin(theta));
     for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
     {
       setPixel(x, static_cast<int16_t>(y + t), 255);
@@ -1103,8 +1104,7 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
   {
     const uint8_t radius = 18;
     const uint8_t thick = 3;
-    // Progress arc + full ring hint
-    drawArc(it.cx, it.cy, radius, 1, 100);
+    // Progress arc only (no base ring)
     drawArc(it.cx, it.cy, radius, thick, it.p);
 
     // Icon: XBM asset centered (40x40 placeholder in native)
@@ -1116,9 +1116,16 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
     else if (it.label[0] == 'P') bits = asap::display::assets::kIconPsy30x30;
     blitXbm(ix, iy, bits, asap::display::assets::kIconW, asap::display::assets::kIconH);
 
-    // Stage label centered below ring
+    // Stage label centered beneath the specific indicator (not screen center)
     const char* roman = (it.s == 1) ? "I" : (it.s == 2) ? "II" : (it.s == 3) ? "III" : "-";
-    drawCentered(roman, FontStyle::Body, static_cast<uint16_t>(it.cy + radius + 8));
+    const int16_t rw = measureTextWidth(roman, 1);
+    int16_t cx = static_cast<int16_t>(it.cx - rw / 2);
+    const int16_t baseline = static_cast<int16_t>(it.cy + radius + 13);
+    for (const char* p = roman; *p; ++p)
+    {
+      drawChar(*p, cx, baseline, 1);
+      cx += static_cast<int16_t>(kGlyphWidth * 1 + 1);
+    }
   }
 }
 
