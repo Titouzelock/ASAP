@@ -626,18 +626,18 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
   lastKind_ = FrameKind::MainAnomaly;
   u8g2_.clearBuffer();
 
-  struct Item { int16_t cx, cy; uint8_t p; uint8_t s; int16_t lx, ly; const char* icon; };
+  struct Item { int16_t cx, cy; uint8_t p; uint8_t s; const char* icon; };
   const Item items[4] = {
-      {32, 28, radPercent,  radStage,  24, 52, "\xE2\x98\xA2"},     // ☢
-      {96, 28, thermPercent, thermStage, 88, 52, "\xF0\x9F\x94\xA5"}, // 🔥
-      {160,28, chemPercent,  chemStage, 152,52, "\xE2\x98\xA3"},     // ☣
-      {224,28, psyPercent,   psyStage,  216,52, "\xF0\x9F\x8C\x80"}, // 🌀
+      {32, 28, radPercent,  radStage,  "RAD"},
+      {96, 28, thermPercent, thermStage, "THERM"},
+      {160,28, chemPercent,  chemStage,  "CHEM"},
+      {224,28, psyPercent,   psyStage,  "PSY"},
   };
 
   for (const auto& it : items)
   {
     // Outer ring and progress
-    const uint8_t radius = 12;
+    const uint8_t radius = 18; // surrounds 30x30 icon with margin
     const uint8_t thick = 3;
     u8g2_.drawCircle(it.cx, it.cy, radius);
     DrawArcU8g2(u8g2_, it.cx, it.cy, radius, thick, it.p);
@@ -645,16 +645,17 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
     // Icon: XBM asset centered (16x16 placeholder)
     const int16_t ix = static_cast<int16_t>(it.cx - asap::display::assets::kIconW / 2);
     const int16_t iy = static_cast<int16_t>(it.cy - asap::display::assets::kIconH / 2);
-    const uint8_t* bits = asap::display::assets::kIconRadiation16x16;
-    if (it.icon[0] == 'F') bits = asap::display::assets::kIconFire16x16;
-    else if (it.icon[0] == 'B') bits = asap::display::assets::kIconBiohazard16x16;
-    else if (it.icon[0] == 'P') bits = asap::display::assets::kIconPsy16x16;
+    const uint8_t* bits = asap::display::assets::kIconRadiation30x30;
+    if (it.icon[0] == 'T') bits = asap::display::assets::kIconFire30x30;
+    else if (it.icon[0] == 'C') bits = asap::display::assets::kIconBiohazard30x30;
+    else if (it.icon[0] == 'P') bits = asap::display::assets::kIconPsy30x30;
     u8g2_.drawXBMP(ix, iy, asap::display::assets::kIconW, asap::display::assets::kIconH, bits);
 
-    // Stage label at provided position
+    // Stage label centered below ring
     u8g2_.setFont(u8g2_font_6x10_tr);
     const char* roman = RomanFor(it.s);
-    u8g2_.drawStr(it.lx, it.ly, roman);
+    const int16_t rw = u8g2_.getStrWidth(roman);
+    u8g2_.drawStr(static_cast<int16_t>(it.cx - rw / 2), static_cast<int16_t>(it.cy + radius + 8), roman);
   }
 
   u8g2_.sendBuffer();
@@ -1090,42 +1091,34 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
   clearBuffer();
   lastKind_ = FrameKind::MainAnomaly;
 
-  struct Item { int16_t cx, cy; uint8_t p; uint8_t s; int16_t lx, ly; const char* label; };
+  struct Item { int16_t cx, cy; uint8_t p; uint8_t s; const char* label; };
   const Item items[4] = {
-      {32, 28, radPercent,  radStage,  24, 52, "R"},
-      {96, 28, thermPercent, thermStage, 88, 52, "F"},
-      {160,28, chemPercent,  chemStage, 152,52, "B"},
-      {224,28, psyPercent,   psyStage,  216,52, "PSY"},
+      {32, 28, radPercent,  radStage,  "R"},
+      {96, 28, thermPercent, thermStage, "F"},
+      {160,28, chemPercent,  chemStage,  "B"},
+      {224,28, psyPercent,   psyStage,  "PSY"},
   };
 
   for (const auto& it : items)
   {
-    const uint8_t radius = 12;
+    const uint8_t radius = 18;
     const uint8_t thick = 3;
     // Progress arc + full ring hint
     drawArc(it.cx, it.cy, radius, 1, 100);
     drawArc(it.cx, it.cy, radius, thick, it.p);
 
-    // Icon: XBM asset centered (16x16 placeholder in native)
-    const int16_t ix = static_cast<int16_t>(it.cx - 8);
-    const int16_t iy = static_cast<int16_t>(it.cy - 8);
-    const uint8_t* bits = asap::display::assets::kIconRadiation16x16;
-    if (it.label[0] == 'F') bits = asap::display::assets::kIconFire16x16;
-    else if (it.label[0] == 'B') bits = asap::display::assets::kIconBiohazard16x16;
-    else if (it.label[0] == 'P') bits = asap::display::assets::kIconPsy16x16;
-    blitXbm(ix, iy, bits, 16, 16);
+    // Icon: XBM asset centered (40x40 placeholder in native)
+    const int16_t ix = static_cast<int16_t>(it.cx - asap::display::assets::kIconW / 2);
+    const int16_t iy = static_cast<int16_t>(it.cy - asap::display::assets::kIconH / 2);
+    const uint8_t* bits = asap::display::assets::kIconRadiation30x30;
+    if (it.label[0] == 'F') bits = asap::display::assets::kIconFire30x30;
+    else if (it.label[0] == 'B') bits = asap::display::assets::kIconBiohazard30x30;
+    else if (it.label[0] == 'P') bits = asap::display::assets::kIconPsy30x30;
+    blitXbm(ix, iy, bits, asap::display::assets::kIconW, asap::display::assets::kIconH);
 
-    // Stage label at provided position (left-aligned)
+    // Stage label centered below ring
     const char* roman = (it.s == 1) ? "I" : (it.s == 2) ? "II" : (it.s == 3) ? "III" : "-";
-    const uint8_t scale = 1;
-    const int16_t advance = static_cast<int16_t>(kGlyphWidth * scale + scale);
-    int16_t cursorX = it.lx;
-    const int16_t baseline = it.ly;
-    for (const char* p = roman; *p; ++p)
-    {
-      drawChar(*p, cursorX, baseline, scale);
-      cursorX += advance;
-    }
+    drawCentered(roman, FontStyle::Body, static_cast<uint16_t>(it.cy + radius + 8));
   }
 }
 
