@@ -15,6 +15,8 @@ UIController::UIController(asap::display::DetectorDisplay& display)
       rssiAvg_(-100),
       rssiInit_(false),
       anomalyStrength_(0),
+      anomalyRad_(0), anomalyTherm_(0), anomalyChem_(0), anomalyPsy_(0),
+      stageRad_(0), stageTherm_(0), stageChem_(0), stagePsy_(0),
       firstActionDone_(false),
       centerPrev_(false),
       pressStartMs_(0)
@@ -27,6 +29,22 @@ void UIController::setAnomalyStrength(uint8_t percent)
 {
   if (percent > 100) percent = 100;
   anomalyStrength_ = percent;
+}
+
+void UIController::setAnomalyExposure(uint8_t rad, uint8_t therm, uint8_t chem, uint8_t psy)
+{
+  anomalyRad_ = (rad > 100) ? 100 : rad;
+  anomalyTherm_ = (therm > 100) ? 100 : therm;
+  anomalyChem_ = (chem > 100) ? 100 : chem;
+  anomalyPsy_ = (psy > 100) ? 100 : psy;
+}
+
+void UIController::setAnomalyStage(uint8_t rad, uint8_t therm, uint8_t chem, uint8_t psy)
+{
+  stageRad_ = (rad > 3) ? 3 : rad;
+  stageTherm_ = (therm > 3) ? 3 : therm;
+  stageChem_ = (chem > 3) ? 3 : chem;
+  stagePsy_ = (psy > 3) ? 3 : psy;
 }
 
 // Feed a new RSSI sample (in dBm) into the tracking EMA. Uses alpha=0.25 for a
@@ -220,8 +238,11 @@ void UIController::RenderMenuConfig(UIController& self)
 void UIController::RenderMainAnomaly(UIController& self)
 {
   using asap::display::FrameKind;
-  asap::display::DisplayFrame f = asap::display::makeAnomalyMainFrame(self.anomalyStrength_, false);
-  self.display_.renderCustom(f, FrameKind::MainAnomaly);
+  // New anomaly HUD: four indicators with circular progress and stage labels.
+  self.display_.drawAnomalyIndicators(self.anomalyRad_, self.anomalyTherm_,
+                                      self.anomalyChem_, self.anomalyPsy_,
+                                      self.stageRad_, self.stageTherm_,
+                                      self.stageChem_, self.stagePsy_);
 }
 
 void UIController::RenderMainTracking(UIController& self)

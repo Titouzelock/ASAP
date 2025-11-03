@@ -111,6 +111,14 @@ class DetectorDisplay
   void setRotation180(bool enabled);
   bool rotation180() const { return rotation180_; }
 
+  // Anomaly indicators: draw four icons with circular progress and stage.
+  // percents: 0..100 for the current partial turn around the icon.
+  // stages: 0..3 (displayed as -, I, II, III below the icon).
+  void drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPercent,
+                             uint8_t chemPercent, uint8_t psyPercent,
+                             uint8_t radStage, uint8_t thermStage,
+                             uint8_t chemStage, uint8_t psyStage);
+
   const DisplayFrame& lastFrame() const { return lastFrame_; }  // for debugging
   FrameKind lastFrameKind() const { return lastKind_; }         // track frame type
   uint32_t beginCount() const { return beginCalls_; }           // begin() calls seen
@@ -158,6 +166,12 @@ class DetectorDisplay
   void setRotation180(bool enabled);
   bool rotation180() const { return rotation180_; }
 
+  // Anomaly indicators renderer for native snapshots
+  void drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPercent,
+                             uint8_t chemPercent, uint8_t psyPercent,
+                             uint8_t radStage, uint8_t thermStage,
+                             uint8_t chemStage, uint8_t psyStage);
+
  private:
   void renderFrame(const DisplayFrame& frame, FrameKind kind);
   void clearBuffer(uint8_t value = 0);
@@ -170,6 +184,8 @@ class DetectorDisplay
   void drawMenuTag();
   void drawRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
   void fillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+  void drawArc(int16_t cx, int16_t cy, uint8_t radius, uint8_t thickness, uint8_t percent);
+  void blitXbm(int16_t x, int16_t y, const uint8_t* bits, uint8_t w, uint8_t h);
 
   DisplayPins pins_;            // captured wiring (not used but kept for parity)
   bool initialized_;            // mock state flag mirroring hardware path

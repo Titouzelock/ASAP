@@ -79,6 +79,9 @@ class UIController
   // External signal hooks
   void setAnomalyStrength(uint8_t percent);  // 0..100 (bar fill)
   void feedTrackingRssi(int16_t rssiDbm);    // EMA input (dBm)
+  // New: set per-channel anomaly exposure (0..100) and stage (0..3)
+  void setAnomalyExposure(uint8_t rad, uint8_t therm, uint8_t chem, uint8_t psy);
+  void setAnomalyStage(uint8_t rad, uint8_t therm, uint8_t chem, uint8_t psy);
 
   // For testing/inspection
   State state() const { return state_; }
@@ -141,6 +144,15 @@ class UIController
   int16_t rssiAvg_;        // EMA accumulator (in dBm)
   bool rssiInit_;
   uint8_t anomalyStrength_;
+  // Per-channel anomaly state for the new HUD
+  uint8_t anomalyRad_;    // 0..100
+  uint8_t anomalyTherm_;  // 0..100
+  uint8_t anomalyChem_;   // 0..100
+  uint8_t anomalyPsy_;    // 0..100
+  uint8_t stageRad_;      // 0..3
+  uint8_t stageTherm_;    // 0..3
+  uint8_t stageChem_;     // 0..3
+  uint8_t stagePsy_;      // 0..3
 
   // Config flags (volatile; persistence TBD)
   // These flags are toggled via the Config submenu. They are intentionally

@@ -10,6 +10,7 @@
 #include <cstring>    // std::strlen
 #include <fstream>    // writing snapshot images
 #include <string>     // text normalization
+#include "asap/display/assets/AnomalyIcons.h"
 #endif
 
 namespace asap::display
@@ -393,6 +394,7 @@ DisplayFrame makeTrackingMainFrame(uint8_t trackingId,
 #ifdef ARDUINO
 
 #include <SPI.h>  // Arduino SPI helpers for the STM32 core
+#include "asap/display/assets/AnomalyIcons.h"
 
 DetectorDisplay::DetectorDisplay(const DisplayPins& pins)
     : pins_(pins),
@@ -576,6 +578,86 @@ void DetectorDisplay::setRotation180(bool enabled)
   {
     u8g2_.setDisplayRotation(U8G2_R0);
   }
+}
+
+// Helper: Roman numeral from stage 0..3
+static const char* RomanFor(uint8_t stage)
+{
+  switch (stage)
+  {
+    case 1: return "I";
+    case 2: return "II";
+    case 3: return "III";
+    default: return "-";
+  }
+}
+
+// Helper: draw a ring arc (0..100%) around center
+static void DrawArcU8g2(U8G2& u8g2,
+                        int16_t cx,
+                        int16_t cy,
+                        uint8_t radius,
+                        uint8_t thickness,
+                        uint8_t percent)
+{
+  const float twoPi = 6.2831853f;
+  const float end = (percent > 100 ? 100 : percent) * twoPi / 100.0f;
+  const float step = 3.0f * 3.1415926f / 180.0f;  // ~3 degrees
+  for (float a = 0.0f; a <= end; a += step)
+  {
+    const int16_t x = static_cast<int16_t>(cx + radius * std::cos(a));
+    const int16_t y = static_cast<int16_t>(cy + radius * std::sin(a));
+    for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
+    {
+      u8g2.drawPixel(x, static_cast<int16_t>(y + t));
+    }
+  }
+}
+
+void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPercent,
+                                            uint8_t chemPercent, uint8_t psyPercent,
+                                            uint8_t radStage, uint8_t thermStage,
+                                            uint8_t chemStage, uint8_t psyStage)
+{
+  if (!initialized_ && !begin())
+  {
+    return;
+  }
+  lastKind_ = FrameKind::MainAnomaly;
+  u8g2_.clearBuffer();
+
+  struct Item { int16_t cx, cy; uint8_t p; uint8_t s; int16_t lx, ly; const char* icon; };
+  const Item items[4] = {
+      {32, 28, radPercent,  radStage,  24, 52, "\xE2\x98\xA2"},     // ☢
+      {96, 28, thermPercent, thermStage, 88, 52, "\xF0\x9F\x94\xA5"}, // 🔥
+      {160,28, chemPercent,  chemStage, 152,52, "\xE2\x98\xA3"},     // ☣
+      {224,28, psyPercent,   psyStage,  216,52, "\xF0\x9F\x8C\x80"}, // 🌀
+  };
+
+  for (const auto& it : items)
+  {
+    // Outer ring and progress
+    const uint8_t radius = 12;
+    const uint8_t thick = 3;
+    u8g2_.drawCircle(it.cx, it.cy, radius);
+    DrawArcU8g2(u8g2_, it.cx, it.cy, radius, thick, it.p);
+
+    // Icon: XBM asset centered (16x16 placeholder)
+    const int16_t ix = static_cast<int16_t>(it.cx - asap::display::assets::kIconW / 2);
+    const int16_t iy = static_cast<int16_t>(it.cy - asap::display::assets::kIconH / 2);
+    const uint8_t* bits = asap::display::assets::kIconRadiation16x16;
+    if (it.icon[0] == 'F') bits = asap::display::assets::kIconFire16x16;
+    else if (it.icon[0] == 'B') bits = asap::display::assets::kIconBiohazard16x16;
+    else if (it.icon[0] == 'P') bits = asap::display::assets::kIconPsy16x16;
+    u8g2_.drawXBMP(ix, iy, asap::display::assets::kIconW, asap::display::assets::kIconH, bits);
+
+    // Stage label at provided position
+    u8g2_.setFont(u8g2_font_6x10_tr);
+    const char* roman = RomanFor(it.s);
+    u8g2_.drawStr(it.lx, it.ly, roman);
+  }
+
+  u8g2_.sendBuffer();
 }
 
 void DetectorDisplay::drawProgressBar(const DisplayFrame& frame)
@@ -956,6 +1038,95 @@ bool DetectorDisplay::writeSnapshot(const char* filePath) const
 void DetectorDisplay::setRotation180(bool enabled)
 {
   rotation180_ = enabled;
+}
+
+void DetectorDisplay::drawArc(int16_t cx,
+                              int16_t cy,
+                              uint8_t radius,
+                              uint8_t thickness,
+                              uint8_t percent)
+{
+  const float twoPi = 6.2831853f;
+  const float end = (percent > 100 ? 100 : percent) * twoPi / 100.0f;
+  const float step = 3.0f * 3.1415926f / 180.0f;  // ~3 degrees
+  for (float a = 0.0f; a <= end; a += step)
+  {
+    const int16_t x = static_cast<int16_t>(cx + radius * std::cos(a));
+    const int16_t y = static_cast<int16_t>(cy + radius * std::sin(a));
+    for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
+    {
+      setPixel(x, static_cast<int16_t>(y + t), 255);
+    }
+  }
+}
+
+void DetectorDisplay::blitXbm(int16_t x, int16_t y,
+                              const uint8_t* bits, uint8_t w, uint8_t h)
+{
+  const uint8_t bytesPerRow = static_cast<uint8_t>((w + 7) / 8);
+  for (uint8_t row = 0; row < h; ++row)
+  {
+    for (uint8_t col = 0; col < w; ++col)
+    {
+      const uint8_t byte = bits[row * bytesPerRow + (col >> 3)];
+      const uint8_t mask = static_cast<uint8_t>(1u << (col & 7)); // XBM LSB first
+      if (static_cast<uint8_t>(byte & mask) != 0)
+      {
+        setPixel(static_cast<int16_t>(x + col), static_cast<int16_t>(y + row), 255);
+      }
+    }
+  }
+}
+
+void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPercent,
+                                            uint8_t chemPercent, uint8_t psyPercent,
+                                            uint8_t radStage, uint8_t thermStage,
+                                            uint8_t chemStage, uint8_t psyStage)
+{
+  if (!initialized_ && !begin())
+  {
+    return;
+  }
+  clearBuffer();
+  lastKind_ = FrameKind::MainAnomaly;
+
+  struct Item { int16_t cx, cy; uint8_t p; uint8_t s; int16_t lx, ly; const char* label; };
+  const Item items[4] = {
+      {32, 28, radPercent,  radStage,  24, 52, "R"},
+      {96, 28, thermPercent, thermStage, 88, 52, "F"},
+      {160,28, chemPercent,  chemStage, 152,52, "B"},
+      {224,28, psyPercent,   psyStage,  216,52, "PSY"},
+  };
+
+  for (const auto& it : items)
+  {
+    const uint8_t radius = 12;
+    const uint8_t thick = 3;
+    // Progress arc + full ring hint
+    drawArc(it.cx, it.cy, radius, 1, 100);
+    drawArc(it.cx, it.cy, radius, thick, it.p);
+
+    // Icon: XBM asset centered (16x16 placeholder in native)
+    const int16_t ix = static_cast<int16_t>(it.cx - 8);
+    const int16_t iy = static_cast<int16_t>(it.cy - 8);
+    const uint8_t* bits = asap::display::assets::kIconRadiation16x16;
+    if (it.label[0] == 'F') bits = asap::display::assets::kIconFire16x16;
+    else if (it.label[0] == 'B') bits = asap::display::assets::kIconBiohazard16x16;
+    else if (it.label[0] == 'P') bits = asap::display::assets::kIconPsy16x16;
+    blitXbm(ix, iy, bits, 16, 16);
+
+    // Stage label at provided position (left-aligned)
+    const char* roman = (it.s == 1) ? "I" : (it.s == 2) ? "II" : (it.s == 3) ? "III" : "-";
+    const uint8_t scale = 1;
+    const int16_t advance = static_cast<int16_t>(kGlyphWidth * scale + scale);
+    int16_t cursorX = it.lx;
+    const int16_t baseline = it.ly;
+    for (const char* p = roman; *p; ++p)
+    {
+      drawChar(*p, cursorX, baseline, scale);
+      cursorX += advance;
+    }
+  }
 }
 
 #endif  // ARDUINO
