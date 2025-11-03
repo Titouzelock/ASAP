@@ -21,6 +21,9 @@ namespace
 
 constexpr uint16_t kDisplayWidth = 256;   // SSD1322 canvas width in pixels
 constexpr uint16_t kDisplayHeight = 64;   // SSD1322 canvas height in pixels
+// Fixed baseline for roman numerals under anomaly indicators to keep their
+// screen position stable regardless of icon/circle vertical adjustments.
+constexpr int16_t kRomanBaselineY = 57;
 
 // Determine the length of a null-terminated string up to maxLen characters.
 uint8_t findLength(const char* text, uint8_t maxLen)
@@ -233,17 +236,20 @@ DisplayFrame makeStatusFrame(const char* line1, const char* line2)
 }
 
 // Build a single-word joystick debug frame.
+// Build a single-word joystick debug frame.
+// Note: use fully-qualified JoyAction values in switch to avoid nested namespace
+// lookup issues under ARDUINO builds (asap::display scope).
 DisplayFrame makeJoystickFrame(::asap::input::JoyAction action)
 {
   const char* word = "NEUTRAL";
   switch (action)
   {
-    case asap::input::JoyAction::Left: word = "LEFT"; break;
-    case asap::input::JoyAction::Right: word = "RIGHT"; break;
-    case asap::input::JoyAction::Up: word = "UP"; break;
-    case asap::input::JoyAction::Down: word = "DOWN"; break;
-    case asap::input::JoyAction::Click: word = "CLICK"; break;
-    case asap::input::JoyAction::Neutral: default: word = "NEUTRAL"; break;
+    case ::asap::input::JoyAction::Left:    word = "LEFT";   break;
+    case ::asap::input::JoyAction::Right:   word = "RIGHT";  break;
+    case ::asap::input::JoyAction::Up:      word = "UP";     break;
+    case ::asap::input::JoyAction::Down:    word = "DOWN";   break;
+    case ::asap::input::JoyAction::Click:   word = "CLICK";  break;
+    case ::asap::input::JoyAction::Neutral: default:         word = "NEUTRAL"; break;
   }
 
   DisplayFrame frame{};
@@ -635,16 +641,19 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
 
   struct Item { int16_t cx, cy; uint8_t p; uint8_t s; const char* icon; };
   const Item items[4] = {
-      {32, 28, radPercent,  radStage,  "RAD"},
-      {96, 28, thermPercent, thermStage, "THERM"},
-      {160,28, chemPercent,  chemStage,  "CHEM"},
-      {224,28, psyPercent,   psyStage,  "PSY"},
+      // Move icon+circle assembly upward so the ring touches 1px from top
+      {32, 23, radPercent,  radStage,  "RAD"},
+      {96, 23, thermPercent, thermStage, "THERM"},
+      {160,23, chemPercent,  chemStage,  "CHEM"},
+      {224,23, psyPercent,   psyStage,  "PSY"},
   };
 
   for (const auto& it : items)
   {
     // Progress arc only (no static ring)
-    const uint8_t radius = 18; // surrounds 30x30 icon with margin
+    // Ring radius chosen to clear 30x30 icon corners (diagonal ~21.2)
+    // with a small margin; thickness is applied symmetrically.
+    const uint8_t radius = 21; // reduced by 3px per request
     const uint8_t thick = 3;
     DrawArcU8g2(u8g2_, it.cx, it.cy, radius, thick, it.p);
 
@@ -661,7 +670,8 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
     u8g2_.setFont(u8g2_font_6x10_tr);
     const char* roman = RomanFor(it.s);
     const int16_t rw = u8g2_.getStrWidth(roman);
-    u8g2_.drawStr(static_cast<int16_t>(it.cx - rw / 2), static_cast<int16_t>(it.cy + radius + 13), roman);
+    // Keep roman baseline fixed on screen to preserve prior placement
+    u8g2_.drawStr(static_cast<int16_t>(it.cx - rw / 2), kRomanBaselineY, roman);
   }
 
   u8g2_.sendBuffer();
@@ -1047,32 +1057,34 @@ void DetectorDisplay::setRotation180(bool enabled)
   rotation180_ = enabled;
 }
 
-// Native mock: draw a ring arc (0..100%) around center with the same
-// orientation as hardware (start at north, sweep clockwise).
+// Native mock: draw a ring arc (0..100%) using trig for smooth circles.
+// Starts at north (-90°) and sweeps clockwise; thickness is a radial band.
 void DetectorDisplay::drawArc(int16_t cx,
                               int16_t cy,
                               uint8_t radius,
                               uint8_t thickness,
                               uint8_t percent)
 {
-  const uint16_t steps = static_cast<uint16_t>((percent > 100 ? 100 : percent) * 120U / 100U);
-  constexpr int32_t kScale = 1024;
-  constexpr int32_t kCos = 1022;
-  constexpr int32_t kSin = 53;
-  int32_t x = 0;
-  int32_t y = -static_cast<int32_t>(radius);
-  for (uint16_t i = 0; i <= steps; ++i)
+  const uint8_t pct = (percent > 100) ? 100 : percent;
+  // angle step in degrees; 3° matches hardware look while remaining smooth
+  constexpr int angleStepDeg = 3;
+  const int maxSteps = (pct * 360) / 100 / angleStepDeg;
+  const int rInner = static_cast<int>(radius) - static_cast<int>(thickness) / 2;
+  const int rOuter = static_cast<int>(radius) + (static_cast<int>(thickness) - 1) / 2;
+  const double pi = 3.14159265358979323846;
+
+  for (int i = 0; i <= maxSteps; ++i)
   {
-    const int16_t px = static_cast<int16_t>(cx + x);
-    const int16_t py = static_cast<int16_t>(cy + y);
-    for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
+    const double deg = -90.0 + static_cast<double>(i * angleStepDeg);
+    const double rad = deg * (pi / 180.0);
+    const double c = std::cos(rad);
+    const double s = std::sin(rad);
+    for (int r = rInner; r <= rOuter; ++r)
     {
-      setPixel(px, static_cast<int16_t>(py + t), 255);
+      const int16_t x = static_cast<int16_t>(cx + static_cast<int>(std::lround(static_cast<double>(r) * c)));
+      const int16_t y = static_cast<int16_t>(cy + static_cast<int>(std::lround(static_cast<double>(r) * s)));
+      setPixel(x, y, 255);
     }
-    const int32_t nx = (x * kCos - y * kSin + (kScale / 2)) / kScale;
-    const int32_t ny = (x * kSin + y * kCos + (kScale / 2)) / kScale;
-    x = nx;
-    y = ny;
   }
 }
 
@@ -1108,15 +1120,16 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
 
   struct Item { int16_t cx, cy; uint8_t p; uint8_t s; const char* label; };
   const Item items[4] = {
-      {32, 28, radPercent,  radStage,  "R"},
-      {96, 28, thermPercent, thermStage, "F"},
-      {160,28, chemPercent,  chemStage,  "B"},
-      {224,28, psyPercent,   psyStage,  "PSY"},
+      // Move icon+circle assembly upward so the ring touches 1px from top
+      {32, 23, radPercent,  radStage,  "R"},
+      {96, 23, thermPercent, thermStage, "F"},
+      {160,23, chemPercent,  chemStage,  "B"},
+      {224,23, psyPercent,   psyStage,  "PSY"},
   };
 
   for (const auto& it : items)
   {
-    const uint8_t radius = 18;
+    const uint8_t radius = 21;
     const uint8_t thick = 3;
     // Progress arc only (no base ring)
     drawArc(it.cx, it.cy, radius, thick, it.p);
@@ -1130,11 +1143,12 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
     else if (it.label[0] == 'P') bits = asap::display::assets::kIconPsy30x30;
     blitXbm(ix, iy, bits, asap::display::assets::kIconW, asap::display::assets::kIconH);
 
-    // Stage label centered beneath the specific indicator (not screen center)
+    // Stage label centered beneath indicator; keep screen position stable
+    // even while moving the icon/circle upward.
     const char* roman = (it.s == 1) ? "I" : (it.s == 2) ? "II" : (it.s == 3) ? "III" : "-";
     const int16_t rw = measureTextWidth(roman, 1);
     int16_t cx = static_cast<int16_t>(it.cx - rw / 2);
-    const int16_t baseline = static_cast<int16_t>(it.cy + radius + 13);
+    const int16_t baseline = kRomanBaselineY; // fixed baseline to preserve prior placement
     for (const char* p = roman; *p; ++p)
     {
       drawChar(*p, cx, baseline, 1);

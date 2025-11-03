@@ -76,10 +76,16 @@ Display Assets (XBM Icons)
 - Hardware path draws via `u8g2.drawXBMP` centered on indicator; native mock blits the same XBM in software for snapshots.
 - Preferred flow: keep source SVG/PNGs in `pics/` and convert to XBM (e.g., ImageMagick) before embedding.
 
-Anomaly HUD Details
-- Icons: 30×30 XBM, ring radius 18, roman label baseline `cy + radius + 13`.
-- Arc: single-pass section (no base ring), constant thickness, begins at north (top) and sweeps clockwise.
-- Control variables (in `UIController`):
+Anomaly HUD Details (Current Contract)
+- Geometry
+  - Icons: 30×30 XBM.
+  - Indicator centers (top-aligned layout): (32,23), (96,23), (160,23), (224,23).
+  - Arc: ring radius 21 px, thickness 3 px; arc begins at north and sweeps clockwise.
+  - Roman numerals baseline is fixed at y=57 for all indicators (constant), independent of icon/circle vertical shifts. See `kRomanBaselineY` in `DetectorDisplay.cpp`.
+- Rendering
+  - Hardware: U8g2 draw path with `DrawArcU8g2` and `drawXBMP` for icons.
+  - Native: trig-based arc (`sin/cos`) for smooth circles; same XBM assets are blitted for snapshots.
+- Control variables (from `UIController`):
   - `setAnomalyExposure(rad, therm, chem, psy)` for arc progress 0..100%.
   - `setAnomalyStage(rad, therm, chem, psy)` for stages 0..3 (rendered as -, I, II, III).
 
