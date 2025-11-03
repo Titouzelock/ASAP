@@ -27,14 +27,10 @@ asap::ui::UIController ui(detectorDisplay);     // UI controller
 
 void setup()
 {
-  SerialUSB.begin(115200);  // enable USB CDC logging
-  delay(500);               // allow host to settle before printing
-  SerialUSB.println("[ASAP] Detector firmware booted.");
-
   if (detectorDisplay.begin()) {
     detectorDisplay.drawBootScreen(ASAP_VERSION);  // show boot splash
   } else {
-    SerialUSB.println("[ASAP] Display initialization failed.");
+    // no-op: logging disabled to save flash (USB CDC removed)
   }
 }
 
@@ -44,7 +40,7 @@ void loop()
   if (now - lastHeartbeat >= kHeartbeatIntervalMs)
   {
     lastHeartbeat = now;
-    SerialUSB.println("tick");  // placeholder heartbeat log
+    // heartbeat log removed (USB CDC disabled)
 
     // TODO: Read actual joystick hardware states.
     const bool centerDown = false;  // placeholder until hardware driver is wired

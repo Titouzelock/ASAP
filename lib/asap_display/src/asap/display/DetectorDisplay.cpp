@@ -495,11 +495,8 @@ void DetectorDisplay::renderFrame(const DisplayFrame& frame)
   // Iterate each logical line and translate into concrete font calls.
   for (uint8_t i = 0; i < frame.lineCount; ++i) {
     const DisplayLine& line = frame.lines[i];
-    if (line.font == FontStyle::Title) {
-      u8g2_.setFont(u8g2_font_ncenB14_tr);
-    } else {
-      u8g2_.setFont(u8g2_font_6x13_tr);
-    }
+    // Use a single compact font to reduce flash footprint
+    u8g2_.setFont(u8g2_font_6x10_tr);
     drawCentered(line.text, line.y);
   }
 
@@ -601,18 +598,26 @@ static void DrawArcU8g2(U8G2& u8g2,
                         uint8_t thickness,
                         uint8_t percent)
 {
-  const float twoPi = 6.2831853f;
-  const float end = (percent > 100 ? 100 : percent) * twoPi / 100.0f;
-  const float step = 3.0f * 3.1415926f / 180.0f;  // ~3 degrees
-  for (float a = 0.0f; a <= end; a += step)
+  const uint16_t steps = static_cast<uint16_t>((percent > 100 ? 100 : percent) * 120U / 100U); // 3° per step
+  // Fixed-point rotation: start at north (0,-r), apply 3° increments
+  constexpr int32_t kScale = 1024;
+  constexpr int32_t kCos = 1022; // round(1024*cos(3°))
+  constexpr int32_t kSin = 53;   // round(1024*sin(3°))
+  int32_t x = 0;
+  int32_t y = -static_cast<int32_t>(radius);
+  for (uint16_t i = 0; i <= steps; ++i)
   {
-    const float theta = a - 3.1415926f/2.0f; // start at north, sweep clockwise
-    const int16_t x = static_cast<int16_t>(cx + radius * std::cos(theta));
-    const int16_t y = static_cast<int16_t>(cy + radius * std::sin(theta));
+    const int16_t px = static_cast<int16_t>(cx + x);
+    const int16_t py = static_cast<int16_t>(cy + y);
     for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
     {
-      u8g2.drawPixel(x, static_cast<int16_t>(y + t));
+      u8g2.drawPixel(px, static_cast<int16_t>(py + t));
     }
+    // rotate by +3° clockwise
+    const int32_t nx = (x * kCos - y * kSin + (kScale / 2)) / kScale;
+    const int32_t ny = (x * kSin + y * kCos + (kScale / 2)) / kScale;
+    x = nx;
+    y = ny;
   }
 }
 
@@ -1050,18 +1055,24 @@ void DetectorDisplay::drawArc(int16_t cx,
                               uint8_t thickness,
                               uint8_t percent)
 {
-  const float twoPi = 6.2831853f;
-  const float end = (percent > 100 ? 100 : percent) * twoPi / 100.0f;
-  const float step = 3.0f * 3.1415926f / 180.0f;  // ~3 degrees
-  for (float a = 0.0f; a <= end; a += step)
+  const uint16_t steps = static_cast<uint16_t>((percent > 100 ? 100 : percent) * 120U / 100U);
+  constexpr int32_t kScale = 1024;
+  constexpr int32_t kCos = 1022;
+  constexpr int32_t kSin = 53;
+  int32_t x = 0;
+  int32_t y = -static_cast<int32_t>(radius);
+  for (uint16_t i = 0; i <= steps; ++i)
   {
-    const float theta = a - 3.1415926f/2.0f; // start at north
-    const int16_t x = static_cast<int16_t>(cx + radius * std::cos(theta));
-    const int16_t y = static_cast<int16_t>(cy + radius * std::sin(theta));
+    const int16_t px = static_cast<int16_t>(cx + x);
+    const int16_t py = static_cast<int16_t>(cy + y);
     for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
     {
-      setPixel(x, static_cast<int16_t>(y + t), 255);
+      setPixel(px, static_cast<int16_t>(py + t), 255);
     }
+    const int32_t nx = (x * kCos - y * kSin + (kScale / 2)) / kScale;
+    const int32_t ny = (x * kSin + y * kCos + (kScale / 2)) / kScale;
+    x = nx;
+    y = ny;
   }
 }
 

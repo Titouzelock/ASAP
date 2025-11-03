@@ -2,9 +2,6 @@
 
 void setup()
 {
-  SerialUSB.begin(115200);
-  delay(500);
-  SerialUSB.println("[ASAP] Artifact unit booted.");
 }
 
 void loop()
@@ -13,6 +10,6 @@ void loop()
   if (millis() - last > 3000)
   {
     last = millis();
-    SerialUSB.println("artifact tick");
+    // logging removed to save flash (USB CDC disabled)
   }
 }

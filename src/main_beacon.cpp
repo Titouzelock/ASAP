@@ -2,9 +2,6 @@
 
 void setup()
 {
-  SerialUSB.begin(115200);
-  delay(500);
-  SerialUSB.println("[ASAP] Beacon firmware booted.");
 }
 
 void loop()
@@ -13,6 +10,6 @@ void loop()
   if (millis() - last > 2000)
   {
     last = millis();
-    SerialUSB.println("beacon ping");
+    // logging removed to save flash (USB CDC disabled)
   }
 }
