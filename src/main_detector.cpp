@@ -1,6 +1,6 @@
 #include <Arduino.h>  // core Arduino API for STM32 targets
 
-#include <asap/display/DetectorDisplay.h>  // SSD1322 display driver abstraction
+#include <asap/display/DisplayDriver.h>  // SSD1322 display driver abstraction
 #include <asap/input/Joystick.h>          // JoyAction for debug page
 #include <asap/ui/UIController.h>         // UI state machine
 

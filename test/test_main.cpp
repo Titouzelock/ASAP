@@ -39,7 +39,7 @@ int& SnapCounter() {
 
 }  // namespace
 #endif
-#include <asap/display/DetectorDisplay.h>  // display driver under test
+#include <asap/display/DisplayDriver.h>  // display driver under test
 #include <asap/input/Joystick.h>
 #include <asap/ui/UIController.h>
 
@@ -171,7 +171,7 @@ void test_snapshot_export_creates_pgm(void)
 
   int maxVal = 0;
   in >> maxVal;
-  TEST_ASSERT_EQUAL_INT(255, maxVal);
+  TEST_ASSERT_EQUAL_INT(15, maxVal);
 
   in.get();  // consume the single whitespace between header and data
   in.close();
@@ -376,27 +376,39 @@ int main(int argc, char** argv)
   // Joystick frame tests
   {
     DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Left);
-    TEST_ASSERT_EQUAL_STRING("LEFT", d.lastFrame().lines[0].text);
+    const DisplayFrame& f = d.lastFrame();
+    TEST_ASSERT_EQUAL_STRING("Joystick", f.lines[0].text);
+    TEST_ASSERT_EQUAL_STRING("LEFT", f.lines[1].text);
   }
   {
     DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Right);
-    TEST_ASSERT_EQUAL_STRING("RIGHT", d.lastFrame().lines[0].text);
+    const DisplayFrame& f = d.lastFrame();
+    TEST_ASSERT_EQUAL_STRING("Joystick", f.lines[0].text);
+    TEST_ASSERT_EQUAL_STRING("RIGHT", f.lines[1].text);
   }
   {
     DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Up);
-    TEST_ASSERT_EQUAL_STRING("UP", d.lastFrame().lines[0].text);
+    const DisplayFrame& f = d.lastFrame();
+    TEST_ASSERT_EQUAL_STRING("Joystick", f.lines[0].text);
+    TEST_ASSERT_EQUAL_STRING("UP", f.lines[1].text);
   }
   {
     DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Down);
-    TEST_ASSERT_EQUAL_STRING("DOWN", d.lastFrame().lines[0].text);
+    const DisplayFrame& f = d.lastFrame();
+    TEST_ASSERT_EQUAL_STRING("Joystick", f.lines[0].text);
+    TEST_ASSERT_EQUAL_STRING("DOWN", f.lines[1].text);
   }
   {
     DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Click);
-    TEST_ASSERT_EQUAL_STRING("CLICK", d.lastFrame().lines[0].text);
+    const DisplayFrame& f = d.lastFrame();
+    TEST_ASSERT_EQUAL_STRING("Joystick", f.lines[0].text);
+    TEST_ASSERT_EQUAL_STRING("CLICK", f.lines[1].text);
   }
   {
     DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Neutral);
-    TEST_ASSERT_EQUAL_STRING("NEUTRAL", d.lastFrame().lines[0].text);
+    const DisplayFrame& f = d.lastFrame();
+    TEST_ASSERT_EQUAL_STRING("Joystick", f.lines[0].text);
+    TEST_ASSERT_EQUAL_STRING("NEUTRAL", f.lines[1].text);
   }
   return UNITY_END();
 }

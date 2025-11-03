@@ -8,7 +8,7 @@
 // asap::display frame builders. This isolates UI state and timing from
 // rendering details.
 
-#include <asap/display/DetectorDisplay.h>
+#include <asap/display/DisplayDriver.h>
 #include <asap/input/Joystick.h>
 
 namespace asap::ui
