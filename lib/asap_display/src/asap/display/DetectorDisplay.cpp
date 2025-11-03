@@ -592,7 +592,8 @@ static const char* RomanFor(uint8_t stage)
   }
 }
 
-// Helper: draw a ring arc (0..100%) around center
+// Helper: draw a ring arc (0..100%) around center.
+// Starts at north (top) and sweeps clockwise with constant thickness.
 static void DrawArcU8g2(U8G2& u8g2,
                         int16_t cx,
                         int16_t cy,
@@ -1041,6 +1042,8 @@ void DetectorDisplay::setRotation180(bool enabled)
   rotation180_ = enabled;
 }
 
+// Native mock: draw a ring arc (0..100%) around center with the same
+// orientation as hardware (start at north, sweep clockwise).
 void DetectorDisplay::drawArc(int16_t cx,
                               int16_t cy,
                               uint8_t radius,

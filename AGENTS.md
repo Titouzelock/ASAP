@@ -71,10 +71,17 @@ Display & UI Contracts
     first item to keep navigation deterministic.
 
 Display Assets (XBM Icons)
-- Anomaly HUD icons (radiation, fire, biohazard, psy) use 1‑bit XBM bitmaps on hardware for crisp rendering.
-- Asset location: `lib/asap_display/src/asap/display/assets/AnomalyIcons.h` (16×16 placeholders now; replace as art improves).
+- Anomaly HUD icons (radiation, fire, biohazard, psy) use 1-bit XBM bitmaps on hardware for crisp rendering.
+- Asset location: `lib/asap_display/src/asap/display/assets/AnomalyIcons.h` (30×30 assets, sourced from `pics/`).
 - Hardware path draws via `u8g2.drawXBMP` centered on indicator; native mock blits the same XBM in software for snapshots.
-- Preferred flow: keep source SVG/PNGs in a separate assets folder and convert to XBM (e.g., ImageMagick) before embedding.
+- Preferred flow: keep source SVG/PNGs in `pics/` and convert to XBM (e.g., ImageMagick) before embedding.
+
+Anomaly HUD Details
+- Icons: 30×30 XBM, ring radius 18, roman label baseline `cy + radius + 13`.
+- Arc: single-pass section (no base ring), constant thickness, begins at north (top) and sweeps clockwise.
+- Control variables (in `UIController`):
+  - `setAnomalyExposure(rad, therm, chem, psy)` for arc progress 0..100%.
+  - `setAnomalyStage(rad, therm, chem, psy)` for stages 0..3 (rendered as -, I, II, III).
 
 Persistence Roadmap
 - Configuration toggles (invert X/Y, rotation, future RSSI calibration constants) are currently volatile. Implement a global, coherent persistence layer (e.g., a small key/value store or fixed struct) to save and load preferences across boots for both embedded and native builds. Coordinate a single API surface (e.g., `settings::load/save`) so all modules use one mechanism. Load settings before UI init so inversion/rotation take effect from the first tick.

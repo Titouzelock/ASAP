@@ -23,14 +23,15 @@ UIController::UIController(asap::display::DetectorDisplay& display)
 {
 }
 
-// Set current anomaly bar fill percentage (0..100) used by the Anomaly main
-// page. Values are clamped to the valid range.
+// Legacy: set current anomaly bar fill percentage (0..100). Kept for
+// compatibility; the new HUD uses per-channel exposure+stage instead.
 void UIController::setAnomalyStrength(uint8_t percent)
 {
   if (percent > 100) percent = 100;
   anomalyStrength_ = percent;
 }
 
+// Set per-channel arc progress for anomaly indicators (0..100% of current turn)
 void UIController::setAnomalyExposure(uint8_t rad, uint8_t therm, uint8_t chem, uint8_t psy)
 {
   anomalyRad_ = (rad > 100) ? 100 : rad;
@@ -39,6 +40,7 @@ void UIController::setAnomalyExposure(uint8_t rad, uint8_t therm, uint8_t chem, 
   anomalyPsy_ = (psy > 100) ? 100 : psy;
 }
 
+// Set per-channel stage (0 none/-, 1 I, 2 II, 3 III)
 void UIController::setAnomalyStage(uint8_t rad, uint8_t therm, uint8_t chem, uint8_t psy)
 {
   stageRad_ = (rad > 3) ? 3 : rad;
