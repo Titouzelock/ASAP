@@ -213,3 +213,10 @@ const DisplayFrame& NativeDisplay::lastFrame() const
 extern "C" void asap_display_native_anchor() {}
 
 #endif  // ARDUINO
+//
+// NativeDisplay.cpp
+// Host implementation of the ASAP display using U8g2’s full buffer for the
+// SSD1322 controller. This constructs a base U8G2, configures it with no-op
+// Arduino callbacks, and renders via shared helpers. The buffer is decoded as
+// vertical-top for 4-bit PGM snapshot export to mirror hardware.
+//

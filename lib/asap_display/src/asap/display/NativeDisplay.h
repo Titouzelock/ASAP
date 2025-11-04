@@ -52,3 +52,15 @@ class NativeDisplay
 }  // namespace asap::display
 
 #endif  // ARDUINO
+//
+// NativeDisplay.h
+// Host-side U8g2 wrapper used by snapshot tests. Owns a plain U8G2 instance
+// configured for SSD1322 full-buffer mode and exposes the same API surface as
+// the embedded DetectorDisplay. Rendering is delegated to the shared U8g2
+// renderer so layouts stay pixel-identical across platforms.
+//
+// Notes for maintainers
+// - This header avoids including U8g2 to keep dependencies light; the .cpp
+//   performs the concrete setup with U8g2lib.
+// - Snapshot export writes 4-bit PGM (P5, MaxVal 15) decoded from U8g2’s
+//   vertical-top buffer layout.

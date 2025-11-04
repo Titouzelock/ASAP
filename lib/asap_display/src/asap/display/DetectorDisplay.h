@@ -60,3 +60,10 @@ using DetectorDisplay = ::asap::display::NativeDisplay;
 } }
 
 #endif
+//
+// DetectorDisplay.h
+// Embedded (STM32 + Arduino) display wrapper. Owns the SSD1322 U8g2 driver
+// and delegates all drawing to the shared U8g2 renderer so the UI remains in
+// sync with the native snapshot path. See DisplayTypes.h for the abstract UI
+// model and DisplayRenderer.* for draw routines.
+//
