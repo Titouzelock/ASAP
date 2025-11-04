@@ -2,17 +2,15 @@
 
 ## Overview
 
-**ASAP** is a modular embedded system designed for immersive airsoft and roleplay events inspired by the *S.T.A.L.K.E.R.* universe.
+**ASAP** is a modular embedded system designed for immersive airsoft and roleplay events inspired by the S.T.A.L.K.E.R. universe.
 
 The project consists of a family of custom STM32-based devices communicating over low-power radio links (CC1101), each serving a specific role within the game ecosystem:
 
-- **Detector** ‚Äì Handheld player device with an OLED display and haptic/LED feedback. Detects signals from anomalies and artifacts.
-- **Beacon** ‚Äì Stationary transmitter marking anomaly zones or invisible hazards.
-- **Artifact** ‚Äì Portable or hidden objects emitting special RF signatures that can be detected by players.
-- **Anomaly** ‚Äì Environmental device simulating unstable zones with random emission bursts.
-- **Native** ‚Äì PC-based environment used for simulation and automated unit testing (via PlatformIO + Unity).
-
-The project aims to **blend technical engineering with immersive gameplay**, building a wireless ecosystem that behaves like a ‚Äúliving‚Äù field environment.
+- **Detector** ó Handheld player device with an OLED display and haptic/LED feedback. Detects signals from anomalies and artifacts.
+- **Beacon** ó Stationary transmitter marking anomaly zones or invisible hazards.
+- **Artifact** ó Portable or hidden objects emitting special RF signatures that can be detected by players.
+- **Anomaly** ó Environmental device simulating unstable zones with random emission bursts.
+- **Native** ó Host environment used for simulation and automated unit testing (PlatformIO + Unity) with U8g2 full-buffer rendering for snapshots.
 
 ---
 
@@ -21,137 +19,70 @@ The project aims to **blend technical engineering with immersive gameplay**, bui
 - **MCU Family:** STM32F103C8T6 ("Blue Pill")
 - **Framework:** Arduino for STM32 (via PlatformIO)
 - **Display:** SSD1322 OLED (U8g2 library)
-- **Radio:** CC1101 (433 MHz) modules for bidirectional low-rate communication
+- **Radio:** CC1101 (433 MHz)
 - **Build System:** PlatformIO (multi-environment)
 - **Testing:** Unity (unit tests on native environment)
-- **CI/CD:** GitHub Actions (auto build + test verification)
 
 ---
 
 ## Architectural Goals
 
-1. **Modularity** ‚Äì Each device shares a common codebase with specific build environments (`platformio.ini` manages this separation).
-2. **Robust Communication** ‚Äì Custom RF protocol designed for field reliability: anti-collision, dwell-time hysteresis, RSSI smoothing.
-3. **Power Efficiency** ‚Äì Designed for long runtime on small battery packs (AAA or Li-ion), using aggressive sleep modes and short packet bursts.
-4. **Scalability** ‚Äì Architecture meant to scale to 20+ simultaneous devices in one field without interference.
-5. **Debuggability** ‚Äì Every firmware includes UART debug logs, optional screen display, and heartbeat LED.
-
----
-
-## Gameplay Context (for design reasoning)
-
-- The *Detector* should feel alive: scanning pulses, responsive beeps, flickering OLED graphics.
-- *Beacons* and *Anomalies* behave unpredictably to create tension; RF emission patterns are randomized.
-- *Artifacts* are the "treasures" ‚Äî emitting rare identifiable signals.
-- Players move through zones with realistic sensor feedback, not just ‚Äúon/off‚Äù detection.
-
-From a code standpoint, **this means timing, signal pattern generation, and state persistence** matter as much as RF transmission itself.
+1. **Modularity** ó Each device shares a common codebase with specific build environments (`platformio.ini`).
+2. **Parity** ó Shared U8g2 renderer for both embedded and native ensures identical layouts and behavior.
+3. **Power Efficiency** ó Keep MCU memory/CPU budgets under control for long runtime.
+4. **Scalability** ó Architecture meant to scale to many devices.
+5. **Debuggability** ó UART logs, snapshots, and heartbeat where applicable.
 
 ---
 
 ## Development Environment
 
-- **/src** ‚Üí Firmware entry points (main_detector.cpp, etc.)
-- **/lib** ‚Üí Shared modules (RF protocol, display, sensors)
-- **/test** ‚Üí Unit tests for logic simulation on PC
-- **/.github/workflows** ‚Üí Continuous Integration scripts
-- **platformio.ini** ‚Üí Multi-device environment configuration
+- **/src** ó Firmware entry points (`main_detector.cpp`, etc.)
+- **/lib** ó Shared modules (display, UI, input, RF)
+- **/test** ó Unit tests and snapshot generation on host
+- **platformio.ini** ó Multi-device environment configuration
+
+### Display Architecture (Unified)
+- **Types:** `lib/asap_display/src/asap/display/DisplayTypes.h` (platform-neutral `DisplayFrame`, `DisplayLine`, `FrameKind`, factories)
+- **Renderer:** `lib/asap_display/src/asap/display/DisplayRenderer.*` ó U8g2-based draw helpers used by both targets
+- **Embedded wrapper:** `DetectorDisplay.*` ó owns SSD1322 U8g2 and calls shared renderer
+- **Native wrapper:** `NativeDisplay.*` ó owns base U8G2 configured for SSD1322 full-buffer
+- **Snapshots:** PGM `P5` (MaxVal 15, 4-bit), decoded from U8g2ís vertical-top buffer
 
 ---
 
 ## Current Focus
 
-Initial phase (v0.1):
-- Build and validate the **Detector** firmware skeleton:
-  - SSD1322 OLED display initialization (via U8g2)
-  - Boot animation + heartbeat LED
-  - Serial logging + status codes
-- Unit test verification in `env:native`
-- Prepare modular RF layer stubs for integration later
+- Detector UI skeleton + shared renderer verified by snapshots
+- Menu system (root: ANOMALY, TRACKING, CONFIG) with long-press gating (=1000 ms)
+- Anomaly and Tracking HUDs
+- Native snapshot contract (4-bit PGM) for CI/UI reviews
 
-### Detector UI and Menu System (added)
+### Detector UI and Menu System
+- UI driven by `lib/asap_ui/src/asap/ui/UIController.*` (state machine + declarative graph)
+- First long-press (=1000 ms) enters menu; subsequent long-presses open menu
+- Root: ANOMALY, TRACKING, CONFIG ó Up/Down navigate, Right/Click enter
+- CONFIG submenu (Invert X, Invert Y, Rotate Display, RSSI Calibration placeholder, Version)
+- Selection resets to the first item when entering a list/menu page
 
-- UI driven by a small state machine (`lib/asap_ui/src/asap/ui/UIController.*`).
-  - First-action gating: the first user interaction must be a 1000 ms long-press on the center button to enter the menu.
-  - Subsequent long-presses also open the menu.
-- Menu structure (shows a top-right "MENU" tag):
-  - Root: ANOMALY, TRACKING, CONFIG. Up/Down to move, Right/Click to enter.
-  - ANOMALY page: Left = back, Right/Click = set main display mode to Anomaly and exit.
-  - TRACKING page: Up = back, Left/Right = change Track ID, Click = set main display mode to Tracking and exit.
-  - CONFIG page: placeholder scaffold for future settings.
-- Main display modes:
-  - Anomaly HUD: 15 px tall, full-width, bordered progress bar at the bottom (0‚Äì100%).
-  - Tracking HUD: "TRACK <ID>" and "RSSI <avg>dBm" with EMA smoothing.
-- Display frame factories encapsulate pages (`DetectorDisplay.cpp`):
-  - `makeMenuRootFrame`, `makeMenuAnomalyFrame`, `makeMenuTrackingFrame`
-  - `makeAnomalyMainFrame`, `makeTrackingMainFrame`
-  - Hardware path draws via U8g2; native path rasterizes to a grayscale buffer and supports snapshots.
-- Declarative nav graph:
-  - The whole page arborescence and transitions are declared in `UIController.h` via a `PageNode` table. Each page defines parent, children, back action, confirm behavior, and hooks.
-  - Up/Down scrolling uses the graph‚Äôs `childCount` (no hard-coded counts) through the root menu action hook.
-  - Confirm (Right/Click) either enters the selected child or jumps to a target state; back uses a per-page mapping (Left/Up as specified above).
-  - Selection policy: entering a list/menu resets selection to the first item.
-
-#### Config Submenu (new)
-- `CONFIG` now opens a submenu (scrollable) with these pages:
-  - Invert X Joystick ‚Äî Right/Click toggles X inversion; shows ON/OFF under the title.
-  - Invert Y Joystick ‚Äî Right/Click toggles Y inversion; shows ON/OFF under the title.
-  - Rotate Display ‚Äî Right/Click toggles 180¬∞ rotation preference; shows ON/OFF under the title.
-  - RSSI Calibration ‚Äî placeholder page for future integration.
-  - Version Display ‚Äî shows `FW <ASAP_VERSION>`.
-- Navigation: Up/Down scroll items (windowed to 3 visible rows), Left backs to root menu; items confirm with Right/Click.
-- Notes: toggles are stored in volatile flags inside `UIController` (persistence TBD). Display rotation is a preference flag only at this stage; integration with the hardware/native renderers can be added later.
-
-Persistence (Future Work)
-- Preferences such as joystick inversion, screen rotation, and RSSI calibration must be persisted across boots using a single, coherent approach shared by all modules. Define a small settings API and structure, provide an embedded backend (flash/EEPROM) and a native backend (file‚Äëbased), and ensure load/save occurs early in boot before UI initialization so behavior applies from first render.
-
-Testing & Snapshots
-- Tests use a single global snapshot counter and action-based names (`000_longpress.pgm`, `001_down.pgm`, etc.) to reflect the exact action sequence.
-- Assertions check key states (e.g., entering Config list, Rotate page title, ON/OFF state, tracking main page) to auto-validate flow in addition to snapshots.
-
-### Anomaly HUD (indicators)
-
-- Layout (top-aligned): indicator centers are (32,23), (96,23), (160,23), (224,23).
-- Arc: single-pass section (no base ring), thickness 3 px, radius 21 px; starts at north and sweeps clockwise.
-- Icons:
-  - Hardware (SSD1322): 1-bit XBM via U8g2 (`drawXBMP`).
-  - Native mock: same XBM blitted in software; arc path uses trig for smooth circles.
-  - Assets live in `lib/asap_display/src/asap/display/assets/AnomalyIcons.h` (30◊30 XBM, from `pics/`).
-- Roman numerals: stages -, I, II, III centered below each indicator on a fixed baseline `kRomanBaselineY = 57` to preserve layout stability.
-- UIController API: `setAnomalyExposure(rad, therm, chem, psy)`, `setAnomalyStage(rad, therm, chem, psy)` feed the HUD.
-- Snapshots (native env): ordered PGM images are generated by tests to visualize UI navigation.
-  - See tests in `test/test_main.cpp`.### Detector Display Notes
-
-- Wiring (SPI 4-wire): `PA5` SCK, `PA7` MOSI, `PA4` CS, `PA3` DC, `PA2` RST, +3V3/GND for power.
-- Library scaffold: `lib/asap_display` exposes `DetectorDisplay` (current `FrameKind`s: `Boot`, `Heartbeat`, `Status`).
-- Heartbeat page: refreshes every 250‚ÄØms with uptime text; activity spinner removed to leave room for copy.
-- Native mock: `env:native` reuses the driver to capture frames, validated via Unity tests.
-- Snapshot export: native driver rasterises display frames into grayscale PGM snapshots for CI/UI review.
-- Future UI: menu/navigation flows will add new frame builders; existing tests keep the rendering contract stable.
-- Open items: brightness tuning, asset pipeline for icons, off-hardware verification harness for CI.
-- Next integration: hook heartbeat driver to LED/haptics, add error banners when peripherals fail.
+### HUD Contracts
+- Anomaly: 15 px tall full-width progress bar
+- Tracking: ìTRACK <ID>î and ìRSSI <avg>dBmî with EMA smoothing
+- Anomaly HUD geometry (indicators): centers (32,23), (96,23), (160,23), (224,23); arc radius 21 px, thickness 3 px; roman baseline y=57
 
 ---
 
-## Collaboration and AI Use
+## Persistence (Roadmap)
+- Joystick inversion, rotation, and future calibration values should be persisted via a shared `settings::load/save` API with both embedded and native backends. Load settings before UI init.
 
-Codex and ChatGPT are used as **co-developers**:
-- To refactor firmware modules cleanly across devices.
-- To write maintainable embedded code with safety and portability in mind.
-- To generate tests, telemetry parsers, and simulation tools.
-- To evolve the communication protocol intelligently (timing, collision avoidance, data structure).
+---
 
-Codex has full context to propose:
-- Firmware structure refinements.
-- Class designs for modularity.
-- Low-level optimizations for power and performance.
-- Suggestions for testing, CI, and versioning.
+## Build & Test
+- Native snapshots: `pio test -e native` ? generates 4-bit PGM snapshots in `snapshots/`
+- Embedded detector build: `pio run -e detector`
+- Other roles: `pio run -e beacon|artifact|anomaly`
 
 ---
 
 ## Summary
-
-**ASAP** is not just firmware ‚Äî it‚Äôs a distributed interactive system simulating a dynamic world.  
-Every module contributes to immersion, signal realism, and player experience.  
-Technical excellence directly enhances narrative tension.
-
+ASAP is a distributed interactive system; rendering parity and snapshot tests ensure a consistent player experience. The unified U8g2 renderer and 4-bit snapshot pipeline keep native and hardware visuals in lockstep.
