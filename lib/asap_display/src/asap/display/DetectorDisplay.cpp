@@ -503,6 +503,7 @@ static const char* RomanFor(uint8_t stage)
   }
 }
 
+#if 0  // removed: use shared DrawArcU8g2 in DisplayRenderer
 // Helper: draw a ring arc (0..100%) around center.
 // Starts at north (top) and sweeps clockwise with constant thickness.
 static void DrawArcU8g2(U8G2& u8g2,
@@ -534,6 +535,7 @@ static void DrawArcU8g2(U8G2& u8g2,
     y = ny;
   }
 }
+#endif  // removed DrawArcU8g2 local in ARDUINO path
 
 void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPercent,
                                             uint8_t chemPercent, uint8_t psyPercent,

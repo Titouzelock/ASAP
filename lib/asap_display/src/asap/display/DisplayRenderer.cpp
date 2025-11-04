@@ -24,6 +24,46 @@ static const char* RomanFor(uint8_t stage)
   }
 }
 
+#if 0  // removed legacy arc helper
+static void DrawArcU8g2_old(::U8G2& u8g2,
+                        int16_t cx,
+                        int16_t cy,
+                        uint8_t radius,
+                        uint8_t thickness,
+                        uint8_t percent)
+{
+  const uint16_t steps = static_cast<uint16_t>(
+      ((percent > 100 ? 100 : percent) * 120U) / 100U); // 3° per step
+  constexpr int32_t kScale = 1024;
+  constexpr int32_t kCos = 1023; // round(1024*cos(3°))
+  constexpr int32_t kSin = 54;   // round(1024*sin(3°))
+
+  int32_t x = 0;
+  int32_t y = -static_cast<int32_t>(radius);
+
+  const int16_t half = static_cast<int16_t>(thickness) / 2;
+  const int16_t rMin = static_cast<int16_t>(radius) - half;
+  const int16_t rMax = static_cast<int16_t>(radius) + (static_cast<int16_t>(thickness) - 1 - half);
+
+  for (uint16_t i = 0; i <= steps; ++i)
+  {
+    for (int16_t r = rMin; r <= rMax; ++r)
+    {
+      const int16_t px = static_cast<int16_t>(cx + (x * r + (radius / 2)) / radius);
+      const int16_t py = static_cast<int16_t>(cy + (y * r + (radius / 2)) / radius);
+      u8g2.drawPixel(px, py);
+    }
+
+    // Rotate 3° clockwise (Y grows downward)
+    const int32_t nx = (x * kCos + y * kSin + (kScale / 2)) / kScale;
+    const int32_t ny = (-x * kSin + y * kCos + (kScale / 2)) / kScale;
+    x = nx;
+    y = ny;
+  }
+}
+#endif  // removed legacy arc helper
+
+// New LUT-driven implementation (integer-only) replacing the runtime-rotation version.
 static void DrawArcU8g2(::U8G2& u8g2,
                         int16_t cx,
                         int16_t cy,
@@ -31,24 +71,66 @@ static void DrawArcU8g2(::U8G2& u8g2,
                         uint8_t thickness,
                         uint8_t percent)
 {
-  const uint16_t steps = static_cast<uint16_t>((percent > 100 ? 100 : percent) * 120U / 100U);
+  // One-quadrant sine table (0..90° inclusive) with 65 samples (~1.40625°/step),
+  // fixed-point scaled by 1024. Full circle reconstructed by mirroring across quadrants.
   constexpr int32_t kScale = 1024;
-  constexpr int32_t kCos = 1022; // round(1024*cos(3°))
-  constexpr int32_t kSin = 53;   // round(1024*sin(3°))
-  int32_t x = 0;
-  int32_t y = -static_cast<int32_t>(radius);
-  for (uint16_t i = 0; i <= steps; ++i)
+  static const int16_t kSinLut[65] = {
+      0,   25,   50,   75,  100,  125,  150,  175,  200,  224,
+    249,  273,  297,  321,  345,  369,  392,  415,  438,  460,
+    483,  505,  526,  548,  569,  590,  610,  630,  650,  669,
+    688,  706,  724,  742,  759,  775,  792,  807,  822,  837,
+    851,  865,  878,  891,  903,  915,  926,  936,  946,  955,
+    964,  972,  980,  987,  993,  999, 1004, 1009, 1013, 1016,
+   1019, 1021, 1023, 1024, 1024
+  };
+
+  // Percent to discrete steps: 4 quadrants * 64 steps = 256 steps per full circle.
+  constexpr uint16_t kStepsPerQuadrant = 64;
+  constexpr uint16_t kFullSteps = kStepsPerQuadrant * 4U;
+  const uint8_t pc = (percent > 100) ? 100 : percent;
+  const uint16_t stepsToDraw = static_cast<uint16_t>((static_cast<uint32_t>(pc) * kFullSteps) / 100U);
+
+  // Radial thickness bounds around base radius (inclusive)
+  const int16_t half = static_cast<int16_t>(thickness) / 2;
+  const int16_t rMin = static_cast<int16_t>(radius) - half;
+  const int16_t rMax = static_cast<int16_t>(radius) + (static_cast<int16_t>(thickness) - 1 - half);
+
+  for (uint16_t s = 0; s <= stepsToDraw; ++s)
   {
-    const int16_t px = static_cast<int16_t>(cx + x);
-    const int16_t py = static_cast<int16_t>(cy + y);
-    for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
+    const uint16_t q = static_cast<uint16_t>(s / kStepsPerQuadrant);   // 0..3
+    const uint16_t w = static_cast<uint16_t>(s % kStepsPerQuadrant);   // 0..63
+
+    const int16_t sin_w = kSinLut[w];
+    const int16_t cos_w = kSinLut[kStepsPerQuadrant - w];
+
+    int32_t ux = 0;
+    int32_t uy = 0;
+    switch (q & 3U)
     {
-      u8g2.drawPixel(px, static_cast<int16_t>(py + t));
+      case 0:  // 0..90°: right, up
+        ux =  sin_w;
+        uy = -cos_w;
+        break;
+      case 1:  // 90..180°: right, down
+        ux =  cos_w;
+        uy =  sin_w;
+        break;
+      case 2:  // 180..270°: left, down
+        ux = -sin_w;
+        uy =  cos_w;
+        break;
+      default: // 270..360°: left, up
+        ux = -cos_w;
+        uy = -sin_w;
+        break;
     }
-    const int32_t nx = (x * kCos - y * kSin + (kScale / 2)) / kScale;
-    const int32_t ny = (x * kSin + y * kCos + (kScale / 2)) / kScale;
-    x = nx;
-    y = ny;
+
+    for (int16_t r = rMin; r <= rMax; ++r)
+    {
+      const int16_t px = static_cast<int16_t>(cx + static_cast<int16_t>((ux * r + (kScale / 2)) / kScale));
+      const int16_t py = static_cast<int16_t>(cy + static_cast<int16_t>((uy * r + (kScale / 2)) / kScale));
+      u8g2.drawPixel(px, py);
+    }
   }
 }
 
@@ -164,8 +246,7 @@ void drawAnomalyIndicatorsU8g2(::U8G2& u8g2,
   {
     const uint8_t radius = 21;
     const uint8_t thick = 3;
-    DrawArcU8g2(u8g2, it.cx, it.cy, radius, thick, it.p);
-
+    // Draw the icon first so subsequent arc pixels can overlay it.
     const int16_t ix = static_cast<int16_t>(it.cx - assets::kIconW / 2);
     const int16_t iy = static_cast<int16_t>(it.cy - assets::kIconH / 2);
     const uint8_t* bits = assets::kIconRadiation30x30;
@@ -173,6 +254,8 @@ void drawAnomalyIndicatorsU8g2(::U8G2& u8g2,
     else if (it.icon[0] == 'C') bits = assets::kIconBiohazard30x30;
     else if (it.icon[0] == 'P') bits = assets::kIconPsy30x30;
     u8g2.drawXBMP(ix, iy, assets::kIconW, assets::kIconH, bits);
+    // Draw the arc after the icon so the ring has the final say.
+    DrawArcU8g2(u8g2, it.cx, it.cy, radius, thick, it.p);
 
     u8g2.setFont(u8g2_font_6x10_tr);
     const char* roman = RomanFor(it.s);
