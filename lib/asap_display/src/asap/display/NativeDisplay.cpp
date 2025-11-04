@@ -88,17 +88,22 @@ void drawArc(u8g2_t& u8g2,
              uint8_t thickness,
              uint8_t percent)
 {
-  const uint16_t steps = static_cast<uint16_t>((percent > 100 ? 100 : percent) * 120U / 100U);
-  constexpr int32_t kScale = 1024;
-  constexpr int32_t kCos = 1022;
-  constexpr int32_t kSin = 53;
+  const uint8_t clamped = (percent > 100) ? 100 : percent;
+  uint16_t steps = static_cast<uint16_t>((clamped * 360U) / 100U);
+  if (steps == 0 && clamped > 0)
+  {
+    steps = 1;
+  }
+  constexpr int32_t kScale = 16384;
+  constexpr int32_t kCos = 16362;  // round(16384 * cos(1°))
+  constexpr int32_t kSin = 286;    // round(16384 * sin(1°))
   int32_t x = 0;
   int32_t y = -static_cast<int32_t>(radius);
   for (uint16_t i = 0; i <= steps; ++i)
   {
     const int16_t px = static_cast<int16_t>(cx + x);
     const int16_t py = static_cast<int16_t>(cy + y);
-    for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
+  for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
     {
       u8g2_DrawPixel(&u8g2, px, static_cast<int16_t>(py + t));
     }
@@ -258,6 +263,7 @@ void NativeDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPerce
   {
     const uint8_t radius = 21;
     const uint8_t thickness = 3;
+    u8g2_DrawCircle(&u8g2_, it.cx, it.cy, radius, U8G2_DRAW_ALL);
     drawArc(u8g2_, it.cx, it.cy, radius, thickness, it.percent);
 
     const int16_t ix = static_cast<int16_t>(it.cx - assets::kIconW / 2);
@@ -419,7 +425,7 @@ void NativeDisplay::captureBuffer()
 
   for (uint16_t y = 0; y < kDisplayHeight; ++y)
   {
-    for (uint16_t x = 0; x < kDisplayWidth; ++x)
+  for (uint16_t x = 0; x < kDisplayWidth; ++x)
     {
       const uint8_t bit = u8x8_capture_get_pixel_1(x, y, const_cast<uint8_t*>(buffer), tileWidth);
       const uint8_t value = bit ? kNibbleMask : 0;

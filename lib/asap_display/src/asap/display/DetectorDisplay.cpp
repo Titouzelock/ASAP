@@ -31,10 +31,15 @@ void drawArc(U8G2& u8g2,
              uint8_t thickness,
              uint8_t percent)
 {
-  const uint16_t steps = static_cast<uint16_t>((percent > 100 ? 100 : percent) * 120U / 100U);
-  constexpr int32_t kScale = 1024;
-  constexpr int32_t kCos = 1022;
-  constexpr int32_t kSin = 53;
+  const uint8_t clamped = (percent > 100) ? 100 : percent;
+  uint16_t steps = static_cast<uint16_t>((clamped * 360U) / 100U);
+  if (steps == 0 && clamped > 0)
+  {
+    steps = 1;
+  }
+  constexpr int32_t kScale = 16384;
+  constexpr int32_t kCos = 16362;  // round(16384 * cos(1°))
+  constexpr int32_t kSin = 286;    // round(16384 * sin(1°))
   int32_t x = 0;
   int32_t y = -static_cast<int32_t>(radius);
   for (uint16_t i = 0; i <= steps; ++i)
@@ -281,6 +286,7 @@ void DetectorDisplay::drawAnomalyIndicators(uint8_t radPercent, uint8_t thermPer
   {
     const uint8_t radius = 21;
     const uint8_t thickness = 3;
+    u8g2_.drawCircle(it.cx, it.cy, radius);
     drawArc(u8g2_, it.cx, it.cy, radius, thickness, it.percent);
 
     const int16_t ix = static_cast<int16_t>(it.cx - assets::kIconW / 2);
@@ -318,4 +324,3 @@ void DetectorDisplay::drawProgressBar(const DisplayFrame& frame)
 }  // namespace asap::display
 
 #endif  // ARDUINO
-
