@@ -8,5 +8,12 @@
     "u8g2"
   ],
   "frameworks": "*",
-  "platforms": "*"
+  "platforms": "*",
+  "dependencies": [
+    {
+      "owner": "olikraus",
+      "name": "U8g2",
+      "version": "^2.36.2"
+    }
+  ]
 }
