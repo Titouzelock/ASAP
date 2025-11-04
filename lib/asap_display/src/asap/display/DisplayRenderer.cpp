@@ -182,3 +182,16 @@ void drawAnomalyIndicatorsU8g2(::U8G2& u8g2,
 }
 
 }  // namespace asap::display
+//
+// DisplayRenderer.cpp
+// Implementation of the shared U8g2 rendering path. This translates the
+// platform-neutral DisplayFrame (lines, tags, progress, HUD elements) into
+// concrete U8g2 draw calls. Both STM32 (hardware) and the native host use
+// these helpers to maintain rendering parity and snapshot stability.
+//
+// Rendering guarantees
+// - Text centering uses U8g2 string width for consistent alignment.
+// - Anomaly HUD geometry (icon positions, arc radius/thickness, roman baseline)
+//   is kept consistent with embedded requirements documented in AGENTS.md.
+// - Avoid platform-specific conditionals here; divergence should live in
+//   wrapper classes that own U8g2 instances (DetectorDisplay/NativeDisplay).

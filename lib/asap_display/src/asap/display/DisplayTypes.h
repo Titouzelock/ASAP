@@ -69,4 +69,17 @@ DisplayFrame makeTrackingMainFrame(uint8_t trackingId,
                                    bool showMenuTag = false);
 
 }  // namespace asap::display
+//
+// DisplayTypes.h
+// Shared UI model for ASAP display rendering across embedded (U8g2 on SSD1322)
+// and native host tests. These types describe what to draw (lines, widgets,
+// frame kind) without prescribing how to draw it. Platform-specific wrappers
+// (DetectorDisplay for embedded, NativeDisplay for host) pass these frames into
+// the shared U8g2-based renderer.
+//
+// Notes for maintainers
+// - Keep this header free of platform-specific includes to avoid dependency
+//   cycles. It should be safe to include from both embedded and native code.
+// - Any additions here should be mirrored in the renderer and (if needed)
+//   validated by snapshot tests in the native environment.
 

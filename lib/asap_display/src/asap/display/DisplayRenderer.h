@@ -20,3 +20,14 @@ void drawAnomalyIndicatorsU8g2(::U8G2& u8g2,
                                uint8_t chemStage, uint8_t psyStage);
 
 }  // namespace asap::display
+//
+// DisplayRenderer.h
+// U8g2-backed rendering helpers for ASAP UI. Given a platform-neutral
+// DisplayFrame (see DisplayTypes.h), these functions emit U8g2 draw calls
+// to render the content into the current U8g2 buffer. Both embedded and
+// native targets call the same routines to ensure pixel-identical layouts.
+//
+// Notes for maintainers
+// - Keep this interface minimal and stable; add helpers as new widgets/frames
+//   are introduced.
+// - Do not include platform wrappers here; only rely on U8g2 and DisplayTypes.
