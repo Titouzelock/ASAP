@@ -9,7 +9,7 @@
 
 extern "C"
 {
-#include "u8g2.h"
+#include <clib/u8g2.h>
 }
 
 namespace asap::display
@@ -63,4 +63,3 @@ class NativeDisplay
 }  // namespace asap::display
 
 #endif  // ARDUINO
-

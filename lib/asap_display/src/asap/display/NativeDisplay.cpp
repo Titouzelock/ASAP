@@ -11,7 +11,8 @@
 
 extern "C"
 {
-#include "u8x8.h"
+#include <clib/u8g2.h>
+#include <clib/u8x8.h>
 extern const uint8_t u8g2_font_6x10_tr[];
 extern const uint8_t u8g2_font_6x13_tr[];
 }

@@ -1,8 +1,0 @@
-{
-  "name": "u8g2_native",
-  "version": "0.1.0",
-  "description": "Minimal U8g2 subset for native snapshot rendering",
-  "platforms": [
-    "native"
-  ]
-}
