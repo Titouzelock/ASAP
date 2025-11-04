@@ -98,11 +98,11 @@ void drawArc(u8g2_t& u8g2,
   constexpr int32_t kCos = 16362;  // round(16384 * cos(1°))
   constexpr int32_t kSin = 286;    // round(16384 * sin(1°))
   int32_t x = 0;
-  int32_t y = -static_cast<int32_t>(radius);
+  int32_t y = -static_cast<int32_t>(radius) * kScale;
   for (uint16_t i = 0; i <= steps; ++i)
   {
-    const int16_t px = static_cast<int16_t>(cx + x);
-    const int16_t py = static_cast<int16_t>(cy + y);
+    const int16_t px = static_cast<int16_t>(cx + (x + (kScale/2)) / kScale);
+    const int16_t py = static_cast<int16_t>(cy + (y + (kScale/2)) / kScale);
   for (int8_t t = -static_cast<int8_t>(thickness) / 2; t <= static_cast<int8_t>(thickness) / 2; ++t)
     {
       u8g2_DrawPixel(&u8g2, px, static_cast<int16_t>(py + t));
