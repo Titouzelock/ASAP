@@ -6,11 +6,11 @@
 
 The project consists of a family of custom STM32-based devices communicating over low-power radio links (CC1101), each serving a specific role within the game ecosystem:
 
-- **Detector** — Handheld player device with an OLED display and haptic/LED feedback. Detects signals from anomalies and artifacts.
-- **Beacon** — Stationary transmitter marking anomaly zones or invisible hazards.
-- **Artifact** — Portable or hidden objects emitting special RF signatures that can be detected by players.
-- **Anomaly** — Environmental device simulating unstable zones with random emission bursts.
-- **Native** — Host environment used for simulation and automated unit testing (PlatformIO + Unity) with U8g2 full-buffer rendering for snapshots.
+- **Detector** ï¿½ Handheld player device with an OLED display and haptic/LED feedback. Detects signals from anomalies and artifacts.
+- **Beacon** ï¿½ Stationary transmitter marking anomaly zones or invisible hazards.
+- **Artifact** ï¿½ Portable or hidden objects emitting special RF signatures that can be detected by players.
+- **Anomaly** ï¿½ Environmental device simulating unstable zones with random emission bursts.
+- **Native** ï¿½ Host environment used for simulation and automated unit testing (PlatformIO + Unity) with U8g2 full-buffer rendering for snapshots.
 
 ---
 
@@ -27,27 +27,27 @@ The project consists of a family of custom STM32-based devices communicating ove
 
 ## Architectural Goals
 
-1. **Modularity** — Each device shares a common codebase with specific build environments (`platformio.ini`).
-2. **Parity** — Shared U8g2 renderer for both embedded and native ensures identical layouts and behavior.
-3. **Power Efficiency** — Keep MCU memory/CPU budgets under control for long runtime.
-4. **Scalability** — Architecture meant to scale to many devices.
-5. **Debuggability** — UART logs, snapshots, and heartbeat where applicable.
+1. **Modularity** ï¿½ Each device shares a common codebase with specific build environments (`platformio.ini`).
+2. **Parity** ï¿½ Shared U8g2 renderer for both embedded and native ensures identical layouts and behavior.
+3. **Power Efficiency** ï¿½ Keep MCU memory/CPU budgets under control for long runtime.
+4. **Scalability** ï¿½ Architecture meant to scale to many devices.
+5. **Debuggability** ï¿½ UART logs, snapshots, and heartbeat where applicable.
 
 ---
 
 ## Development Environment
 
-- **/src** — Firmware entry points (`main_detector.cpp`, etc.)
-- **/lib** — Shared modules (display, UI, input, RF)
-- **/test** — Unit tests and snapshot generation on host
-- **platformio.ini** — Multi-device environment configuration
+- **/src** ï¿½ Firmware entry points (`main_detector.cpp`, etc.)
+- **/lib** ï¿½ Shared modules (display, UI, input, RF)
+- **/test** ï¿½ Unit tests and snapshot generation on host
+- **platformio.ini** ï¿½ Multi-device environment configuration
 
 ### Display Architecture (Unified)
 - **Types:** `lib/asap_display/src/asap/display/DisplayTypes.h` (platform-neutral `DisplayFrame`, `DisplayLine`, `FrameKind`, factories)
-- **Renderer:** `lib/asap_display/src/asap/display/DisplayRenderer.*` — U8g2-based draw helpers used by both targets
-- **Embedded wrapper:** `DetectorDisplay.*` — owns SSD1322 U8g2 and calls shared renderer
-- **Native wrapper:** `NativeDisplay.*` — owns base U8G2 configured for SSD1322 full-buffer
-- **Snapshots:** PGM `P5` (MaxVal 15, 4-bit), decoded from U8g2’s vertical-top buffer
+- **Renderer:** `lib/asap_display/src/asap/display/DisplayRenderer.*` ï¿½ U8g2-based draw helpers used by both targets
+- **Embedded wrapper:** `DetectorDisplay.*` ï¿½ owns SSD1322 U8g2 and calls shared renderer
+- **Native wrapper:** `NativeDisplay.*` ï¿½ owns base U8G2 configured for SSD1322 full-buffer
+- **Snapshots:** PGM `P5` (MaxVal 15, 4-bit), decoded from U8g2ï¿½s vertical-top buffer
 
 ---
 
@@ -61,13 +61,13 @@ The project consists of a family of custom STM32-based devices communicating ove
 ### Detector UI and Menu System
 - UI driven by `lib/asap_ui/src/asap/ui/UIController.*` (state machine + declarative graph)
 - First long-press (=1000 ms) enters menu; subsequent long-presses open menu
-- Root: ANOMALY, TRACKING, CONFIG — Up/Down navigate, Right/Click enter
+- Root: ANOMALY, TRACKING, CONFIG ï¿½ Up/Down navigate, Right/Click enter
 - CONFIG submenu (Invert X, Invert Y, Rotate Display, RSSI Calibration placeholder, Version)
 - Selection resets to the first item when entering a list/menu page
 
 ### HUD Contracts
 - Anomaly: 15 px tall full-width progress bar
-- Tracking: “TRACK <ID>” and “RSSI <avg>dBm” with EMA smoothing
+- Tracking: ï¿½TRACK <ID>ï¿½ and ï¿½RSSI <avg>dBmï¿½ with EMA smoothing
 - Anomaly HUD geometry (indicators): centers (32,23), (96,23), (160,23), (224,23); arc radius 21 px, thickness 3 px; roman baseline y=57
 
 ---
@@ -78,7 +78,7 @@ The project consists of a family of custom STM32-based devices communicating ove
 ---
 
 ## Build & Test
-- Native snapshots: `pio test -e native` ? generates 4-bit PGM snapshots in `snapshots/`
+- Native snapshots: `pio test -e native` generates 4-bit PGM snapshots in `snapshots/`
 - Embedded detector build: `pio run -e detector`
 - Other roles: `pio run -e beacon|artifact|anomaly`
 
