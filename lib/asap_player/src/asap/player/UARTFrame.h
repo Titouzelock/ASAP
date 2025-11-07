@@ -1,3 +1,5 @@
+// UARTFrame.h
+// Minimal binary framing utilities for import/export over UART.
 #pragma once
 
 #include <cstdint>
@@ -8,6 +10,7 @@ namespace asap::player
 {
 
 // [0x02][len_L][len_H][payload][CRC_L][CRC_H][0x03]
+// - Length is little-endian; CRC is CRC-16/CCITT-FALSE over payload only.
 constexpr uint8_t kFrameSOH = 0x02;
 constexpr uint8_t kFrameEOT = 0x03;
 
@@ -30,4 +33,3 @@ bool decodeFrame(const uint8_t* inFrame,
                  uint16_t& outLen);
 
 } // namespace asap::player
-

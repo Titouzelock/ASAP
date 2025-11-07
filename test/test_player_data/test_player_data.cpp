@@ -9,6 +9,53 @@
 
 using namespace asap::player;
 
+void test_uart_frame_playerpersistent_roundtrip(void)
+{
+  // Build a non-trivial PlayerPersistent
+  PlayerPersistent p{};
+  initDefaults(p);
+  p.system.brightness = 23;
+  p.system.volume = 55;
+  p.logic.armor = 9;
+
+  // Compute CRC over packed struct
+  p.crc = 0u;
+  const uint16_t crc = computeCRC16(reinterpret_cast<const uint8_t*>(&p), sizeof(p));
+  p.crc = crc;
+
+  // Serialize to raw payload bytes
+  uint8_t src[sizeof(PlayerPersistent)];
+  std::memcpy(src, &p, sizeof(p));
+
+  // Encode frame
+  uint8_t frame[1 + 2 + sizeof(src) + 2 + 1];
+  uint16_t frameLen = 0;
+  TEST_ASSERT_TRUE(encodeFrame(src, static_cast<uint16_t>(sizeof(src)), frame, static_cast<uint16_t>(sizeof(frame)), frameLen));
+
+  // Decode frame (happy path)
+  uint8_t dst[sizeof(src)];
+  uint16_t outLen = 0;
+  TEST_ASSERT_TRUE(decodeFrame(frame, frameLen, dst, static_cast<uint16_t>(sizeof(dst)), outLen));
+  TEST_ASSERT_EQUAL_UINT16(sizeof(src), outLen);
+
+  // Verify CRC of decoded payload
+  PlayerPersistent q{};
+  std::memcpy(&q, dst, sizeof(q));
+  const uint16_t stored = q.crc;
+  q.crc = 0u;
+  const uint16_t calc = computeCRC16(reinterpret_cast<const uint8_t*>(&q), sizeof(q));
+  TEST_ASSERT_EQUAL_HEX16(stored, calc);
+
+  // Byte-for-byte equality
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(src, dst, sizeof(src));
+
+  // Negative path: flip a payload byte and expect decode failure due to CRC mismatch
+  frame[3] ^= 0xFF; // flip first payload byte (after SOH+len)
+  uint8_t badOut[sizeof(src)];
+  uint16_t badLen = 0;
+  TEST_ASSERT_FALSE(decodeFrame(frame, frameLen, badOut, static_cast<uint16_t>(sizeof(badOut)), badLen));
+}
+
 void test_crc16_vector(void)
 {
   const char* s = "123456789";

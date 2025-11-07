@@ -1,3 +1,5 @@
+// Migration.h
+// Hook for migrating older persistent structures to the current version.
 #pragma once
 
 #include "PlayerData.h"
@@ -11,4 +13,3 @@ namespace asap::player
 bool migratePersistent(const PlayerPersistent& p_in, PlayerPersistent& p_out);
 
 } // namespace asap::player
-

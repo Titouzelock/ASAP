@@ -1,3 +1,12 @@
+// PlayerData.h
+// Compact, packed data structures and helpers for player persistence and session state.
+//
+// Design notes:
+// - Packed layout (no padding) with direct struct writes to flash/frames.
+// - All multi-byte fields are little-endian (native MCU order).
+// - Persistent blob fits in a single 1 KB STM32F103 flash page.
+// - Only top-level PlayerPersistent and PlayerSession have version fields; substructures inherit.
+// - Reserved bytes allow forward expansion without breaking layout.
 #pragma once
 
 #include <cstdint>
@@ -7,10 +16,12 @@ namespace asap::player
 {
 
 // Versions
+// Version counters for top-level structures. Increment when the public layout changes.
 constexpr uint8_t kPersistentVersion = 1;
 constexpr uint8_t kSessionVersion    = 1;
 
 // Ranges and limits
+// Centralized bounds used by clamp helpers and input validation.
 constexpr uint8_t  kMinResistance = 0;
 constexpr uint8_t  kMaxResistance = 10;
 constexpr uint8_t  kMinPercent    = 0;
@@ -20,6 +31,7 @@ constexpr uint16_t kMaxExposure   = 1024;   // 1000 lethal, 1024 headroom
 constexpr uint16_t kLethalExposure = 1000;
 
 // Defaults (persistent)
+// Initial values used on first boot, CRC/version mismatch or failed migration.
 constexpr uint8_t  kDefaultFireRes       = 0;
 constexpr uint8_t  kDefaultPsyRes        = 0;
 constexpr uint8_t  kDefaultRadRes        = 0;
@@ -38,10 +50,12 @@ constexpr uint16_t kDefaultExposure      = 0;
 constexpr uint32_t kDefaultLifeTimerMs   = 0;
 
 // Description field
+// Fixed-size ASCII buffer stored in flash; unused bytes are zeroed.
 constexpr size_t   kDescriptionSize      = 960;
 extern const char  kDefaultDescription[]; // "UNREGISTERED PLAYER\r\nAwaiting configuration..."
 
 // Clamp helper
+// Small utility used to enforce bounds across multiple fields without allocations.
 template <typename T>
 inline T clamp(T v, T lo, T hi)
 {
@@ -50,6 +64,8 @@ inline T clamp(T v, T lo, T hi)
 
 #pragma pack(push, 1)
 
+// PlayerLogic
+// Gameplay-related modifiers and faction/money fields. No internal version field by design.
 struct PlayerLogic
 {
   uint8_t  fire_resistance;       // 0..10
@@ -62,6 +78,8 @@ struct PlayerLogic
   uint8_t  reserved[8];           // expansion / alignment
 }; // 16 bytes
 
+// SystemConfig
+// Device-level preferences (brightness/volume/language/rotation). Rotation is a boolean flag (0/1).
 struct SystemConfig
 {
   uint8_t  brightness;     // 0..100%
@@ -72,6 +90,8 @@ struct SystemConfig
   uint8_t  reserved[10];   // calibration, padding
 }; // 16 bytes
 
+// PlayerPersistent
+// Flash-resident container with version and CRC. Serialized form is the in-memory bytes.
 struct PlayerPersistent
 {
   uint8_t       version;                    // structure version
@@ -81,6 +101,8 @@ struct PlayerPersistent
   uint16_t      crc;                        // CRC16 (CCITT-FALSE) little-endian
 }; // expected 995 bytes
 
+// PlayerSession
+// RAM-only session metrics that reset on reboot/respawn.
 struct PlayerSession
 {
   uint8_t  version;             // structure version
@@ -91,6 +113,8 @@ struct PlayerSession
   uint32_t life_timer_ms;       // milliseconds since respawn
 }; // expected 13 bytes
 
+// PlayerState
+// Convenience aggregate combining persistent and session domains.
 struct PlayerState
 {
   PlayerPersistent persistent;
@@ -100,6 +124,7 @@ struct PlayerState
 #pragma pack(pop)
 
 // Size guards (single 1KB page for persistent)
+// Ensure layout assumptions hold across toolchains and optimization levels.
 static_assert(sizeof(PlayerLogic) == 16, "PlayerLogic must be 16 bytes");
 static_assert(sizeof(SystemConfig) == 16, "SystemConfig must be 16 bytes");
 static_assert(sizeof(PlayerPersistent) <= 1024, "PlayerPersistent must fit one page");
@@ -107,10 +132,10 @@ static_assert(sizeof(PlayerPersistent) == 995, "PlayerPersistent must be 995 byt
 static_assert(sizeof(PlayerSession) == 13, "PlayerSession must be 13 bytes");
 
 // Initialization and clamping
+// Default initializers zero reserved bytes and populate safe values.
 void initDefaults(PlayerPersistent &p);
 void initDefaults(PlayerSession &s);
 void clampPersistent(PlayerPersistent &p);
 void clampSession(PlayerSession &s);
 
 } // namespace asap::player
-

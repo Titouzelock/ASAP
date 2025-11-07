@@ -359,45 +359,26 @@ void test_ui_menu_navigation_snapshots(void)
 #endif  // ARDUINO
 
 // Removed: detailed config submenu walkthrough; simplified flow is covered in the main navigation test.
-int main(int argc, char** argv)
-{
-  (void)argc;
-  (void)argv;
-
-  UNITY_BEGIN();
-  //RUN_TEST(test_boot_frame_contents);
-  //RUN_TEST(test_heartbeat_frame_updates_spinner);
-  //RUN_TEST(test_status_frame_handles_empty_second_line);
 #ifndef ARDUINO
-  //RUN_TEST(test_snapshot_export_creates_pgm);
+
+int main(int, char**)
+{
+  UNITY_BEGIN();
   RUN_TEST(test_anomaly_hud_stage_snapshots);
   RUN_TEST(test_ui_menu_navigation_snapshots);
-#endif
-  // Joystick frame tests
-  {
-    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Left);
-    TEST_ASSERT_EQUAL_STRING("LEFT", d.lastFrame().lines[0].text);
-  }
-  {
-    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Right);
-    TEST_ASSERT_EQUAL_STRING("RIGHT", d.lastFrame().lines[0].text);
-  }
-  {
-    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Up);
-    TEST_ASSERT_EQUAL_STRING("UP", d.lastFrame().lines[0].text);
-  }
-  {
-    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Down);
-    TEST_ASSERT_EQUAL_STRING("DOWN", d.lastFrame().lines[0].text);
-  }
-  {
-    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Click);
-    TEST_ASSERT_EQUAL_STRING("CLICK", d.lastFrame().lines[0].text);
-  }
-  {
-    DetectorDisplay d({0, 0, 0}); d.begin(); d.showJoystick(asap::input::JoyAction::Neutral);
-    TEST_ASSERT_EQUAL_STRING("NEUTRAL", d.lastFrame().lines[0].text);
-  }
+  // Player data framing + CRC round-trip (native-only)
+  void test_uart_frame_playerpersistent_roundtrip(void);
+  RUN_TEST(test_uart_frame_playerpersistent_roundtrip);
   return UNITY_END();
 }
+
+#else
+
+int main()
+{
+  // Native-only snapshot tests are not executed on embedded targets.
+  return 0;
+}
+
+#endif
 

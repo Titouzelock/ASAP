@@ -1,10 +1,14 @@
+// PlayerData.cpp
+// Default initialization and clamping helpers for player structures.
 #include "PlayerData.h"
 
 namespace asap::player
 {
 
+// Default ASCII description persisted in flash when uninitialized.
 const char kDefaultDescription[] = "UNREGISTERED PLAYER\r\nAwaiting configuration...";
 
+// Populate persistent structure with safe defaults. CRC is left to be computed by savePersistent.
 void initDefaults(PlayerPersistent &p)
 {
   p.version = kPersistentVersion;
@@ -40,10 +44,11 @@ void initDefaults(PlayerPersistent &p)
   p.system.serial_number = kDefaultSerialNumber;
   for (int i = 0; i < 10; ++i) { p.system.reserved[i] = 0; }
 
-  // crc will be computed by savePersistent
+  // CRC is computed during save; set to 0 for now.
   p.crc = 0u;
 }
 
+// Populate session structure with safe defaults (RAM-only data).
 void initDefaults(PlayerSession &s)
 {
   s.version            = kSessionVersion;
@@ -54,6 +59,7 @@ void initDefaults(PlayerSession &s)
   s.life_timer_ms      = kDefaultLifeTimerMs;
 }
 
+// Enforce ranges and normalize boolean flags for persistent data after load/import.
 void clampPersistent(PlayerPersistent &p)
 {
   p.logic.fire_resistance      = clamp<uint8_t>(p.logic.fire_resistance,      kMinResistance, kMaxResistance);
@@ -70,6 +76,7 @@ void clampPersistent(PlayerPersistent &p)
   p.system.display_mode = (p.system.display_mode == 0u || p.system.display_mode == 1u) ? p.system.display_mode : 0u;
 }
 
+// Enforce ranges for session data.
 void clampSession(PlayerSession &s)
 {
   s.fire_exposure      = clamp<uint16_t>(s.fire_exposure,      kMinExposure, kMaxExposure);
@@ -80,4 +87,3 @@ void clampSession(PlayerSession &s)
 }
 
 } // namespace asap::player
-

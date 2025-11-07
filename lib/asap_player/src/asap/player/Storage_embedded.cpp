@@ -1,3 +1,6 @@
+// Storage_embedded.cpp
+// Embedded (STM32 Arduino) implementation of persistence using HAL Flash APIs.
+// Erase/program a single page at kFlashBaseAddr_PlayerPersistent, then read-back verify.
 #ifdef ARDUINO
 
 #include "Storage.h"
@@ -12,6 +15,7 @@
 namespace asap::player
 {
 
+// Byte-wise flash read into RAM buffer.
 static void readFlash(uint32_t addr, void* dst, size_t len)
 {
   const uint8_t* p = reinterpret_cast<const uint8_t*>(addr);
@@ -23,6 +27,7 @@ static void readFlash(uint32_t addr, void* dst, size_t len)
 }
 
 #if defined(STM32F1xx) || defined(STM32F1)
+// Erase a single flash page at the given address.
 static bool erasePage(uint32_t addr)
 {
   HAL_FLASH_Unlock();
@@ -36,6 +41,8 @@ static bool erasePage(uint32_t addr)
   return st == HAL_OK;
 }
 
+// Program packed bytes into flash using halfword programming.
+// Tail byte is handled by patching the existing halfword.
 static bool programBytes(uint32_t addr, const uint8_t* src, size_t len)
 {
   HAL_FLASH_Unlock();
@@ -68,6 +75,7 @@ static bool programBytes(uint32_t addr, const uint8_t* src, size_t len)
 }
 #endif
 
+// Load and validate persistent data from flash.
 bool loadPersistent(PlayerPersistent& dst)
 {
   PlayerPersistent tmp{};
@@ -103,6 +111,7 @@ bool loadPersistent(PlayerPersistent& dst)
   return true;
 }
 
+// Compute CRC, erase page, program bytes, and read-back verify.
 bool savePersistent(const PlayerPersistent& src)
 {
   PlayerPersistent tmp = src;
@@ -136,6 +145,7 @@ bool savePersistent(const PlayerPersistent& src)
 }
 
 // NOTE: import/export via UART to be implemented within the project serial layer if needed.
+// UART import/export to be implemented against the project's serial layer.
 bool importPersistent(PlayerPersistent& dst)
 {
   (void)dst;
@@ -172,4 +182,3 @@ void resetSession(PlayerState& state)
 } // namespace asap::player
 
 #endif // ARDUINO
-

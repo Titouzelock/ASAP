@@ -1,3 +1,5 @@
+// Storage.h
+// Persistence API for PlayerPersistent on embedded and native builds.
 #pragma once
 
 #include <cstdint>
@@ -7,7 +9,7 @@ namespace asap::player
 {
 
 // Persistent storage
-// Embedded: uses STM32 HAL Flash APIs at kFlashBaseAddr_PlayerPersistent (erase/program, then read-back verify).
+// Embedded: uses STM32 HAL Flash APIs at kFlashBaseAddr_PlayerPersistent (erase/program, read-back verify).
 // Native: file-backed stub at test/.tmp/player_persistent.bin (same layout/CRC/versioning).
 bool loadPersistent(PlayerPersistent& dst);
 bool savePersistent(const PlayerPersistent& src);
@@ -26,4 +28,3 @@ bool save(const PlayerState& state);
 void resetSession(PlayerState& state);
 
 } // namespace asap::player
-

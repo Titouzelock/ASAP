@@ -1,3 +1,5 @@
+// CRC16.cpp
+// Bitwise CRC-16/CCITT-FALSE implementation (portable, no table).
 #include "CRC16.h"
 
 namespace asap::player
@@ -5,7 +7,7 @@ namespace asap::player
 
 uint16_t computeCRC16(const uint8_t* data, size_t len)
 {
-  uint16_t crc = 0xFFFFu; // init
+  uint16_t crc = 0xFFFFu; // init per CCITT-FALSE
   for (size_t i = 0; i < len; ++i)
   {
     crc ^= static_cast<uint16_t>(data[i]) << 8;
@@ -25,4 +27,3 @@ uint16_t computeCRC16(const uint8_t* data, size_t len)
 }
 
 } // namespace asap::player
-

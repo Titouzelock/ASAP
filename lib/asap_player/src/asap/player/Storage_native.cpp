@@ -1,3 +1,6 @@
+// Storage_native.cpp
+// Native (host) implementation of persistence via a file stub.
+// The file acts as a byte-accurate stand-in for flash memory.
 #ifndef ARDUINO
 
 #include "Storage.h"
@@ -12,6 +15,7 @@
 namespace asap::player
 {
 
+// Read entire persistent blob from the stub file.
 static bool readAll(void* dst, size_t len)
 {
   std::FILE* f = std::fopen(kNativeStubPath, "rb");
@@ -24,6 +28,7 @@ static bool readAll(void* dst, size_t len)
   return n == len;
 }
 
+// Write entire persistent blob to the stub file (creating directory if needed).
 static bool writeAll(const void* src, size_t len)
 {
   std::filesystem::create_directories(std::filesystem::path(kNativeStubPath).parent_path());
@@ -37,6 +42,7 @@ static bool writeAll(const void* src, size_t len)
   return n == len;
 }
 
+// Load and validate persistent data from the stub file.
 bool loadPersistent(PlayerPersistent& dst)
 {
   PlayerPersistent tmp{};
@@ -78,6 +84,7 @@ bool loadPersistent(PlayerPersistent& dst)
   return true;
 }
 
+// Save persistent data with CRC computed over the packed struct.
 bool savePersistent(const PlayerPersistent& src)
 {
   PlayerPersistent tmp = src;
@@ -93,12 +100,14 @@ bool savePersistent(const PlayerPersistent& src)
 
 // For native stub, keep import/export unimplemented against a serial port.
 // Tests should exercise UARTFrame encode/decode directly.
+// Serial import is not implemented in native stub; tests exercise framing directly.
 bool importPersistent(PlayerPersistent& dst)
 {
   (void)dst;
   return false;
 }
 
+// Serial export is not implemented in native stub.
 void exportPersistent(const PlayerPersistent& src)
 {
   (void)src;
@@ -129,4 +138,3 @@ void resetSession(PlayerState& state)
 } // namespace asap::player
 
 #endif // !ARDUINO
-

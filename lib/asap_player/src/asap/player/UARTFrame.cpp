@@ -1,3 +1,5 @@
+// UARTFrame.cpp
+// Encode/decode helpers for the simple UART frame used to transfer player data.
 #include "UARTFrame.h"
 #include "CRC16.h"
 
@@ -13,7 +15,7 @@ bool encodeFrame(const uint8_t* payload,
   if (!payload || !outFrame) { return false; }
   if (length == 0 || length > kMaxUartPayload) { return false; }
 
-  const uint16_t needed = static_cast<uint16_t>(1 + 2 + length + 2 + 1);
+  const uint16_t needed = static_cast<uint16_t>(1 + 2 + length + 2 + 1); // SOH + len + payload + CRC + EOT
   if (outCapacity < needed) { return false; }
 
   uint16_t pos = 0;
@@ -50,7 +52,7 @@ bool decodeFrame(const uint8_t* inFrame,
   pos += 2;
   if (length == 0 || length > kMaxUartPayload) { return false; }
 
-  const uint16_t needed = static_cast<uint16_t>(1 + 2 + length + 2 + 1);
+  const uint16_t needed = static_cast<uint16_t>(1 + 2 + length + 2 + 1); // SOH + len + payload + CRC + EOT
   if (inLen < needed) { return false; }
   if (outCapacity < length) { return false; }
 
@@ -72,4 +74,3 @@ bool decodeFrame(const uint8_t* inFrame,
 }
 
 } // namespace asap::player
-
