@@ -11,14 +11,14 @@ Contents
 - Build config: flash addresses and limits in `StorageConfig.h`
 
 Key Files
-- `lib/asap_player/src/asap/player/PlayerData.h(.cpp)` — data structures, defaults, clamping
-- `lib/asap_player/src/asap/player/Storage.h` — persistence API (embedded + native)
-- `lib/asap_player/src/asap/player/Storage_embedded.cpp` — STM32 HAL Flash implementation
-- `lib/asap_player/src/asap/player/Storage_native.cpp` — native file-backed implementation
-- `lib/asap_player/src/asap/player/CRC16.h(.cpp)` — CRC-16/CCITT-FALSE
-- `lib/asap_player/src/asap/player/UARTFrame.h(.cpp)` — binary frame encode/decode
-- `lib/asap_player/src/asap/player/StorageConfig.h` — flash base address and UART payload limit
-- `lib/asap_player/src/asap/player/Migration.h(.cpp)` — migration hook (no-op by default)
+- `lib/asap_player/src/asap/player/PlayerData.h(.cpp)` - data structures, defaults, clamping
+- `lib/asap_player/src/asap/player/Storage.h` - persistence API (embedded + native)
+- `lib/asap_player/src/asap/player/Storage_embedded.cpp` - STM32 HAL Flash implementation
+- `lib/asap_player/src/asap/player/Storage_native.cpp` - native file-backed implementation
+- `lib/asap_player/src/asap/player/CRC16.h(.cpp)` - CRC-16/CCITT-FALSE
+- `lib/asap_player/src/asap/player/UARTFrame.h(.cpp)` - binary frame encode/decode
+- `lib/asap_player/src/asap/player/StorageConfig.h` - flash base address and UART payload limit
+- `lib/asap_player/src/asap/player/Migration.h(.cpp)` - migration hook (no-op by default)
 
 Data Model
 - `PlayerPersistent` (flash):
@@ -43,7 +43,7 @@ Flash Addressing (STM32F103C8T6)
 
 CRC Details
 - Variant: CRC-16/CCITT-FALSE (poly `0x1021`, init `0xFFFF`, no reflection, XOR-out `0x0000`)
-- Test vector: `"123456789"` → `0x29B1`
+- Test vector: "123456789" -> `0x29B1`
 
 UART Framing
 - Binary format: `[0x02][len_L][len_H][payload][CRC_L][CRC_H][0x03]`
@@ -54,7 +54,7 @@ UART Framing
 Persistence API (How It Connects)
 - Embedded path (`Storage_embedded.cpp`):
   - `loadPersistent(dst)` reads flash, verifies CRC and version
-    - If version mismatch: `migratePersistent(old, migrated)` → on failure, `initDefaults(dst)`
+    - If version mismatch: `migratePersistent(old, migrated)` -> on failure, `initDefaults(dst)`
     - Always `clampPersistent(dst)` after load/migration
   - `savePersistent(src)` clamps, computes CRC, erases page, programs halfwords, read-back verifies
   - `importPersistent(dst)` / `exportPersistent(src)` are hooks for UART workflows (to be wired to your serial layer)
@@ -86,10 +86,11 @@ Testing
 Framing + CRC Round-Trip Test
 - Implemented in `test/test_player_data/test_player_data.cpp` as `test_uart_frame_playerpersistent_roundtrip`.
 - Wired into the native runner `test/test_main.cpp` and executed with the snapshot tests.
-- Validates end-to-end: pack PlayerPersistent → encodeFrame → decodeFrame → CRC recheck → byte-for-byte equality.
+- Validates end-to-end: pack PlayerPersistent -> encodeFrame -> decodeFrame -> CRC recheck -> byte-for-byte equality.
 - Includes a negative path: flips a payload byte in the frame and asserts `decodeFrame` fails due to CRC mismatch.
 
 Notes
 - Keep ARDUINO and native parity: same struct layout, CRC, and versioning behaviors
 - Avoid dynamic allocation in embedded paths; use fixed buffers
 - Do not modify third-party code under `lib/Unity/`
+

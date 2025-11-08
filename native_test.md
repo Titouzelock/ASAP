@@ -13,3 +13,6 @@ Agent Permissions & Expectations — Native testing
 Verification Checklist (Quick) — Native testing
 - `pio test -e native` passes and snapshots updated intentionally.
 
+Snapshot Numbering and Cleanup
+- The native test runner resets the global snapshot counter and clears all previous `.pgm` files in `snapshots/` at the start of each run. This avoids duplicate numeric prefixes (e.g., two files starting with `013_...`) across runs and keeps the sequence deterministic.
+

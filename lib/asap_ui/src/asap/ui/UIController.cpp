@@ -1,5 +1,9 @@
-#include "asap/ui/UIController.h"
+﻿#include "asap/ui/UIController.h"
 #include <cstring>
+// Player data access for the Player Data page
+#include <asap/player/PlayerData.h>
+#include <asap/player/Storage.h>
+#include <cstdio>
 
 namespace asap::ui
 {
@@ -179,6 +183,11 @@ void UIController::navigate(asap::input::JoyAction action)
       {
         selectedIndex_ = 0;
       }
+      // Reset Player Data scroll when entering that page
+      if (state_ == State::MenuPlayerData)
+      {
+        playerDataOffset_ = 0;
+      }
       return;
     }
     if (page->confirm == ConfirmBehavior::GoToTarget)
@@ -235,6 +244,282 @@ void UIController::RenderMenuConfig(UIController& self)
   using asap::display::FrameKind;
   // Now replaced by RenderMenuConfigList (kept for compatibility if referenced)
   RenderMenuConfigList(self);
+}
+
+// --- Player Data page helpers (two‑phase description wrapping) ---
+namespace
+{
+  using asap::display::DisplayLine;
+
+  uint16_t countDescriptionSegments(const char* desc)
+  {
+    if (!desc || desc[0] == '\0') return 0;
+    const uint8_t firstWidth = DisplayLine::kMaxLineLength;
+    const uint8_t contWidth  = (DisplayLine::kMaxLineLength > 2) ? static_cast<uint8_t>(DisplayLine::kMaxLineLength - 2) : 0;
+
+    uint16_t total = 0;
+    size_t i = 0;
+    while (i < asap::player::kDescriptionSize)
+    {
+      // Phase 1: one logical line (terminated by NUL/CR/LF)
+      const size_t lineStart = i;
+      while (i < asap::player::kDescriptionSize)
+      {
+        char c = desc[i];
+        if (c == '\0' || c == '\r' || c == '\n') break;
+        ++i;
+      }
+      const size_t lineLen = i - lineStart;
+
+      // Phase 2: segments for this logical line
+      if (lineLen == 0)
+      {
+        ++total; // empty line -> empty segment
+      }
+      else if (lineLen <= firstWidth)
+      {
+        ++total;
+      }
+      else
+      {
+        size_t remaining = lineLen - firstWidth;
+        uint16_t contSegs = (contWidth == 0) ? static_cast<uint16_t>(remaining)
+                                             : static_cast<uint16_t>((remaining + contWidth - 1) / contWidth);
+        total = static_cast<uint16_t>(total + 1 + contSegs);
+      }
+
+      // consume exactly one break (CR or LF); CRLF yields an empty line next loop
+      if (i >= asap::player::kDescriptionSize) break;
+      char br = desc[i];
+      if (br == '\0') break;
+      ++i;
+    }
+    return total;
+  }
+
+  bool renderDescriptionSegment(uint16_t target, const char* desc, char* out)
+  {
+    const uint8_t kMax = DisplayLine::kMaxLineLength;
+    const uint8_t firstWidth = kMax;
+    const uint8_t contWidth  = (kMax > 2) ? static_cast<uint8_t>(kMax - 2) : 0;
+
+    if (!desc) { out[0] = '\0'; return false; }
+    size_t i = 0;
+    uint16_t segIndex = 0;
+    while (i < asap::player::kDescriptionSize)
+    {
+      // Phase 1: logical line
+      const size_t lineStart = i;
+      while (i < asap::player::kDescriptionSize)
+      {
+        char c = desc[i];
+        if (c == '\0' || c == '\r' || c == '\n') break;
+        ++i;
+      }
+      const size_t lineLen = i - lineStart;
+
+      // Phase 2: emit segment if matches target
+      if (lineLen == 0)
+      {
+        if (segIndex == target) { out[0] = '\0'; return true; }
+        ++segIndex;
+      }
+      else if (lineLen <= firstWidth)
+      {
+        if (segIndex == target)
+        {
+          const size_t copyLen = (lineLen < kMax) ? lineLen : kMax;
+          for (size_t j = 0; j < copyLen; ++j) out[j] = desc[lineStart + j];
+          out[copyLen] = '\0';
+          return true;
+        }
+        ++segIndex;
+      }
+      else
+      {
+        // first segment
+        if (segIndex == target)
+        {
+          const size_t copyLen = firstWidth;
+          for (size_t j = 0; j < copyLen; ++j) out[j] = desc[lineStart + j];
+          out[copyLen] = '\0';
+          return true;
+        }
+        ++segIndex;
+        // continuations
+        size_t remaining = lineLen - firstWidth;
+        size_t offset = firstWidth;
+        while (remaining > 0)
+        {
+          const size_t chunk = (remaining < contWidth) ? remaining : contWidth;
+          if (segIndex == target)
+          {
+            if (kMax >= 2)
+            {
+              out[0] = '>';
+              out[1] = ' ';
+              for (size_t j = 0; j < chunk && (2 + j) < kMax; ++j)
+              {
+                out[2 + j] = desc[lineStart + offset + j];
+              }
+              out[2 + chunk] = '\0';
+            }
+            else { out[0] = '\0'; }
+            return true;
+          }
+          ++segIndex;
+          offset += chunk;
+          remaining -= chunk;
+        }
+      }
+
+      // consume a single break
+      if (i >= asap::player::kDescriptionSize) break;
+      char br = desc[i]; if (br == '\0') break; ++i;
+    }
+    out[0] = '\0';
+    return false;
+  }
+
+  // Build visual content for a given index
+  void formatPlayerDataLine(uint16_t index, const asap::player::PlayerPersistent& p, char* out)
+  {
+    using namespace asap::display;
+    if (index == 0)
+    {
+      std::strncpy(out, "PLAYER DATA", DisplayLine::kMaxLineLength);
+      out[DisplayLine::kMaxLineLength] = '\0';
+      return;
+    }
+    if (index == 1)
+    {
+      std::strncpy(out, "Version ", DisplayLine::kMaxLineLength);
+      out[DisplayLine::kMaxLineLength] = '\0';
+      uint8_t v = p.version; char digits[3]; uint8_t d=0;
+      do { digits[d++] = static_cast<char>('0' + (v % 10U)); v/=10U; } while (v>0 && d<sizeof(digits));
+      while (d>0 && std::strlen(out) < DisplayLine::kMaxLineLength) { size_t L=std::strlen(out); out[L]=digits[--d]; out[L+1]='\0'; }
+      return;
+    }
+    auto append_u8 = [&](const char* label, uint8_t val)
+    {
+      size_t L = std::strlen(out);
+      const char* s = label; while (*s && L < DisplayLine::kMaxLineLength) { out[L++] = *s++; }
+      out[L] = '\0'; char digits[3]; uint8_t d=0; uint8_t vv=val;
+      do { digits[d++] = static_cast<char>('0' + (vv % 10U)); vv/=10U; } while (vv>0 && d<sizeof(digits));
+      while (d>0 && L < DisplayLine::kMaxLineLength) { out[L++] = digits[--d]; }
+      out[L] = '\0';
+    };
+    if (index == 2)
+    {
+      out[0] = '\0'; append_u8("FIRE ", p.logic.fire_resistance);
+      if (std::strlen(out) + 3 < DisplayLine::kMaxLineLength) std::strncat(out, " | ", DisplayLine::kMaxLineLength - std::strlen(out));
+      append_u8("PSY ", p.logic.psy_resistance); return;
+    }
+    if (index == 3)
+    {
+      out[0] = '\0'; append_u8("RAD ", p.logic.radiation_resistance);
+      if (std::strlen(out) + 3 < DisplayLine::kMaxLineLength) std::strncat(out, " | ", DisplayLine::kMaxLineLength - std::strlen(out));
+      append_u8("CHEM ", p.logic.chemical_resistance); return;
+    }
+    if (index == 4)
+    {
+      out[0] = '\0'; append_u8("ARM ", p.logic.armor);
+      if (std::strlen(out) + 3 < DisplayLine::kMaxLineLength) std::strncat(out, " | ", DisplayLine::kMaxLineLength - std::strlen(out));
+      append_u8("FAC ", p.logic.faction); return;
+    }
+    if (index == 5)
+    {
+      std::strncpy(out, "MONEY ", DisplayLine::kMaxLineLength);
+      out[DisplayLine::kMaxLineLength] = '\0';
+      uint32_t rub = static_cast<uint32_t>(p.logic.money_units) * 100U; char digits[10]; uint8_t d=0;
+      do { digits[d++] = static_cast<char>('0' + (rub % 10U)); rub/=10U; } while (rub>0 && d<sizeof(digits));
+      while (d>0 && std::strlen(out) < DisplayLine::kMaxLineLength) { size_t L=std::strlen(out); out[L]=digits[--d]; out[L+1]='\0'; }
+      return;
+    }
+    const uint16_t descLineBase = 6;
+    const uint16_t target = static_cast<uint16_t>(index - descLineBase);
+    if (!renderDescriptionSegment(target, p.description, out)) out[0] = '\0';
+    return;
+  }
+
+  uint16_t totalPlayerDataLines(const asap::player::PlayerPersistent& p)
+  {
+    return static_cast<uint16_t>(6 + countDescriptionSegments(p.description));
+  }
+}
+
+void UIController::RenderMenuPlayerData(UIController& self)
+{
+  using asap::display::FrameKind;
+  asap::display::DisplayFrame f{};
+  // Hide MENU tag on Player Data page
+  f.showMenuTag = false;
+  f.lineCount = 0;
+  f.spinnerActive = false;
+  f.spinnerIndex = 0;
+
+  // Load current persistent data
+  asap::player::PlayerPersistent p{};
+  if (!asap::player::loadPersistent(p))
+  {
+    asap::player::initDefaults(p);
+  }
+
+  const uint16_t total = totalPlayerDataLines(p);
+  if (self.playerDataOffset_ > total)
+  {
+    self.playerDataOffset_ = 0;
+  }
+
+  const uint16_t ys[3] = {20, 38, 56};
+  for (uint8_t i = 0; i < 3; ++i)
+  {
+    const uint16_t li = static_cast<uint16_t>(self.playerDataOffset_ + i);
+    if (li >= total) break;
+    auto& line = f.lines[f.lineCount++];
+    char buf[asap::display::DisplayLine::kMaxLineLength + 1];
+    formatPlayerDataLine(li, p, buf);
+    std::strncpy(line.text, buf, asap::display::DisplayLine::kMaxLineLength);
+    line.text[asap::display::DisplayLine::kMaxLineLength] = '\0';
+    line.font = asap::display::FontStyle::Body;
+    line.y = ys[i];
+  }
+
+  self.display_.renderCustom(f, FrameKind::Menu);
+}
+
+void UIController::ActionMenuPlayerData(UIController& self, asap::input::JoyAction action)
+{
+  // Up: scroll back by 3, clamp at 0
+  if (action == asap::input::JoyAction::Up)
+  {
+    if (self.playerDataOffset_ >= 3) self.playerDataOffset_ = static_cast<uint16_t>(self.playerDataOffset_ - 3);
+    return;
+  }
+  if (action == asap::input::JoyAction::Down)
+  {
+    // Compute total lines to decide if we exit
+    asap::player::PlayerPersistent p{};
+    if (!asap::player::loadPersistent(p)) { asap::player::initDefaults(p); }
+    const uint16_t total = totalPlayerDataLines(p);
+    uint16_t nextOffset = static_cast<uint16_t>(self.playerDataOffset_ + 3);
+    if (nextOffset >= total)
+    {
+      self.state_ = State::MenuRoot;
+      self.selectedIndex_ = 0;
+      self.playerDataOffset_ = 0;
+      return;
+    }
+    self.playerDataOffset_ = nextOffset;
+    return;
+  }
+  if (action == asap::input::JoyAction::Click || action == asap::input::JoyAction::Left)
+  {
+    self.state_ = State::MenuRoot;
+    self.selectedIndex_ = 0;
+    self.playerDataOffset_ = 0;
+    return;
+  }
 }
 
 void UIController::RenderMainAnomaly(UIController& self)

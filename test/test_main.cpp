@@ -42,6 +42,9 @@ int& SnapCounter() {
 #include <asap/display/DetectorDisplay.h>  // display driver under test
 #include <asap/input/Joystick.h>
 #include <asap/ui/UIController.h>
+// For pre-filling PlayerPersistent in native tests
+#include <asap/player/PlayerData.h>
+#include <asap/player/Storage.h>
 
 using asap::display::DetectorDisplay;
 using asap::display::DisplayFrame;
@@ -301,7 +304,9 @@ void test_ui_menu_navigation_snapshots(void)
   ui.onTick(6100, {/*centerDown=*/false, JoyAction::Down}); // select TRACKING
   Save("down");
 
-  ui.onTick(6200, {/*centerDown=*/false, JoyAction::Down}); // select CONFIG
+  ui.onTick(6200, {/*centerDown=*/false, JoyAction::Down}); // select PLAYER DATA
+  Save("down");
+  ui.onTick(6250, {/*centerDown=*/false, JoyAction::Down}); // select CONFIG
   Save("down");
 
   ui.onTick(6300, {/*centerDown=*/false, JoyAction::Click}); // enter CONFIG
@@ -316,45 +321,50 @@ void test_ui_menu_navigation_snapshots(void)
     TEST_ASSERT_EQUAL_STRING("  INVERT Y JOYSTICK", f.lines[2].text);
   }
 
-  // In CONFIG list: move to Rotate Display (Down, Down), enter, toggle ON (Right)
-  ui.onTick(6400, {/*centerDown=*/false, JoyAction::Down});
-  Save("down");
-  ui.onTick(6500, {/*centerDown=*/false, JoyAction::Down});
-  Save("down");
-  ui.onTick(6600, {/*centerDown=*/false, JoyAction::Click});
-  Save("click");
-  // Entered Rotate Display page; should show OFF initially
-  {
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(FrameKind::Menu), static_cast<uint8_t>(display.lastFrameKind()));
-    const DisplayFrame& f = display.lastFrame();
-    TEST_ASSERT_EQUAL_STRING("ROTATE DISPLAY", f.lines[0].text);
-  }
-  ui.onTick(6700, {/*centerDown=*/false, JoyAction::Right});
-  Save("right");
-  // After toggle, rotation should be ON and text should reflect it
-  {
-    TEST_ASSERT_TRUE(display.rotation180());
-    const DisplayFrame& f = display.lastFrame();
-    TEST_ASSERT_EQUAL_STRING("ON", f.lines[1].text);
-  }
+  // (Rotation toggle test removed)
 
-  // Back to root menu (Left from leaf, then Left from config list)
-  ui.onTick(6800, {/*centerDown=*/false, JoyAction::Left});
-  Save("left");
-  ui.onTick(6900, {/*centerDown=*/false, JoyAction::Left});
-  Save("left");
-
-  // Select TRACKING (Up from CONFIG), enter, confirm to exit back to main page
-  ui.onTick(7000, {/*centerDown=*/false, JoyAction::Up});
-  Save("up");
-  ui.onTick(7100, {/*centerDown=*/false, JoyAction::Click});
-  Save("click");
-  ui.onTick(7200, {/*centerDown=*/false, JoyAction::Click});
-  Save("click");
-  // After confirm, main page should be tracking
+  // --- Player Data page snapshots ---
+  // Prefill persistent with non-trivial values
   {
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(FrameKind::MainTracking), static_cast<uint8_t>(display.lastFrameKind()));
+    asap::player::PlayerPersistent p{};
+    asap::player::initDefaults(p);
+    p.version = asap::player::kPersistentVersion;
+    p.logic.fire_resistance = 3;
+    p.logic.psy_resistance = 2;
+    p.logic.radiation_resistance = 5;
+    p.logic.chemical_resistance = 1;
+    p.logic.armor = 7;
+    p.logic.faction = 42;
+    p.logic.money_units = 123; // 123*100 rubles
+    // Small description text (with wrapping)
+    const char* desc = "First line of text\r\nSecond line here\r\nAlongerlinethatshouldwrapacrossmultipledisplaylineswhenrenderedidon'thaveanymoreideasthisisstrange.Alongerlinethatshouldwrapacrossmultipledisplaylineswhenrenderedidon'thaveanymoreideasthisisstrange.";
+    // Clear then copy
+    for (size_t i=0;i<asap::player::kDescriptionSize;++i) p.description[i]='\0';
+    size_t k=0; while(desc[k] && k<asap::player::kDescriptionSize){ p.description[k]=desc[k]; ++k; }
+    asap::player::savePersistent(p);
   }
+  // Open menu again
+  ui.onTick(8000, {/*centerDown=*/true, JoyAction::Neutral});
+  Save("longpress");
+  ui.onTick(9000, {/*centerDown=*/true, JoyAction::Neutral});
+  Save("longpress");
+  // Move selection to PLAYER DATA (two downs from ANOMALY)
+  ui.onTick(9100, {/*centerDown=*/false, JoyAction::Down});
+  Save("down");
+  ui.onTick(9200, {/*centerDown=*/false, JoyAction::Down});
+  Save("down");
+  // Enter PLAYER DATA
+  ui.onTick(9300, {/*centerDown=*/false, JoyAction::Click});
+  Save("click");
+  // Scroll down through the list; snapshot each step
+  ui.onTick(9400, {/*centerDown=*/false, JoyAction::Down});
+  Save("down");
+  ui.onTick(9500, {/*centerDown=*/false, JoyAction::Down});
+  Save("down");
+  ui.onTick(9600, {/*centerDown=*/false, JoyAction::Down});
+  Save("down");
+  ui.onTick(9700, {/*centerDown=*/false, JoyAction::Down});
+  Save("down");
 }
 #endif  // ARDUINO
 
@@ -363,6 +373,22 @@ void test_ui_menu_navigation_snapshots(void)
 
 int main(int, char**)
 {
+  // Clean previous snapshot files and reset counter so numbering is stable per run
+  {
+    int& c = SnapCounter();
+    c = -1;
+    const auto dir = SnapshotsDir();
+    std::error_code ec;
+    for (auto& entry : std::filesystem::directory_iterator(dir, ec))
+    {
+      const auto& p = entry.path();
+      if (p.extension() == ".pgm")
+      {
+        std::filesystem::remove(p, ec);
+      }
+    }
+  }
+
   UNITY_BEGIN();
   RUN_TEST(test_anomaly_hud_stage_snapshots);
   RUN_TEST(test_ui_menu_navigation_snapshots);

@@ -25,6 +25,50 @@ The project consists of a family of custom STM32-based devices communicating ove
 
 ---
 
+## Recent Changes (Nov 2025)
+
+- Declarative UI navigation graph (`UIController`): pages and transitions defined via a `PageNode` table in `lib/asap_ui/src/asap/ui/UIController.h`. Back/confirm behavior is encoded per-page; selection logic derives from child counts (no magic numbers).
+- Config submenu built out under `MenuConfig`: Invert X Joystick, Invert Y Joystick, Rotate Display, RSSI Calibration (placeholder), Version Display. Each item exposes a render/action hook.
+- Player Data persistence module added (`lib/asap_player/`): packed structs with CRC-16/CCITT-FALSE, versioning, and parity between embedded and native backends.
+- Native UI snapshot testing: `pio test -e native` exports PGM snapshots to `snapshots/`, used as a visual contract for UI changes. The test runner cleans previous `.pgm` files and resets numbering per run.
+
+---
+
+## Build & Test
+
+- Device builds (STM32 Blue Pill):
+  - Detector: `pio run -e detector`
+  - Beacon/Artifact/Anomaly: `pio run -e beacon|artifact|anomaly`
+  - Upload: `pio run -e <env> -t upload`
+- Native host tests and snapshots:
+  - Run: `pio test -e native`
+  - Output: PGM snapshots under `snapshots/` for boot, heartbeat, anomaly HUD, and end-to-end menu navigation.
+
+---
+
+## Modules
+
+- Display/UI
+  - Display frames built in `lib/asap_display`, rendered via U8g2 on both embedded and native targets.
+  - UI state and navigation live in `lib/asap_ui/src/asap/ui/`, with page-specific render/action hooks.
+- Input
+  - Debounced joystick actions mapped to high-level `JoyAction`; first interaction requires a 1000 ms long-press on center to enter the menu.
+- Player Data Persistence (`lib/asap_player`)
+  - API: `load(state)`, `save(state)`, `resetSession(state)`, and `loadPersistent/savePersistent`.
+  - Embedded backend uses HAL Flash at the reserved page; native backend writes to a file for tests.
+  - UART framing helpers (`UARTFrame.*`) support import/export workflows.
+
+---
+
+## UI Contracts (Summary)
+
+- Root menu: ANOMALY, TRACKING, PLAYER DATA, CONFIG. Up/Down scroll; Right/Click confirms.
+- Main pages:
+  - Anomaly HUD: four indicators with arc progress (0..100%) and roman stage labels (-, I, II, III); 15 px bottom progress bar retained for legacy strength display.
+  - Tracking HUD: TRACK <ID> and smoothed RSSI readout.
+- Player Data page: read-only; 3-line window with paged scrolling, hides the top-right MENU tag while active.
+
+
 ## Architectural Goals
 
 1. **Modularity** � Each device shares a common codebase with specific build environments (`platformio.ini`).

@@ -18,6 +18,10 @@ Build & Test
   - Detector: `pio run -e detector`
   - Other roles: `pio run -e beacon|artifact|anomaly`
   - Upload: `pio run -e <env> -t upload`
+- Native tests and UI snapshots (host):
+  - Run: `pio test -e native`
+  - Output: PGM snapshots in `snapshots/` (auto-created). Treat these images as a UI contract; update intentionally when layouts change.
+  - Notes: Native build enables richer STL and file I/O; embedded paths must remain allocation-light and avoid `<string>/<vector>/<fstream>`.
 
 Agent Permissions & Expectations
 - Prefer minimal, surgical diffs. Do not modify third-party code (e.g., anything under `lib/Unity/`).
@@ -38,8 +42,11 @@ Coding Conventions
   - Prefer logical include paths (`<asap/display/DetectorDisplay.h>`).
   - Keep ARDUINO vs native specifics confined to the two thin wrappers (DetectorDisplay/NativeDisplay). Shared code (DisplayTypes/Renderer) is platform-neutral.
 
-Persistence Roadmap
-- Configuration toggles (invert X/Y, rotation, future RSSI calibration constants) are currently volatile. Implement a global, coherent persistence layer (e.g., a small key/value store or fixed struct) to save and load preferences across boots for both embedded and native builds. Coordinate a single API surface (e.g., `settings::load/save`) so all modules use one mechanism. Load settings before UI init so inversion/rotation take effect from the first tick.
+Persistence Layer
+- Implemented in `lib/asap_player/` with parity for embedded (`Storage_embedded.cpp`) and native (`Storage_native.cpp`).
+- Public API (header-only entry points in `Storage.h` and `PlayerData.h`): `load(state)`, `save(state)`, `resetSession(state)`, plus `loadPersistent/savePersistent` helpers.
+- Integrity: CRC-16/CCITT-FALSE over packed structs; versioned schema with no RTTI/exceptions.
+- Settings used by UI (e.g., joystick invert X/Y, rotation) should be loaded before UI init so behavior applies from the first tick.
 
 MCU Constraints (STM32F103C8T6)
 - Keep embedded code feasible for 64 KB flash / 20 KB RAM class devices.

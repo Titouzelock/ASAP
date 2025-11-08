@@ -194,7 +194,8 @@ DisplayFrame makeJoystickFrame(::asap::input::JoyAction action)
   return frame;
 }
 
-// Root menu with three items and a selection caret ('>').
+// Root menu windowed list with a selection caret ('>').
+// Shows three items (prev, current, next) from the circular list.
 DisplayFrame makeMenuRootFrame(uint8_t selectedIndex)
 {
   DisplayFrame frame{};
@@ -203,17 +204,28 @@ DisplayFrame makeMenuRootFrame(uint8_t selectedIndex)
   frame.spinnerIndex = 0;
   frame.showMenuTag = true;
 
-  const char* items[3] = {"ANOMALY", "TRACKING", "CONFIG"};
+  const char* items[4] = {"ANOMALY", "TRACKING", "PLAYER DATA", "CONFIG"};
+  const uint8_t count = 4;
   const uint16_t ys[3] = {20, 38, 56};
-  for (uint8_t i = 0; i < 3 && frame.lineCount < DisplayFrame::kMaxLines; ++i) {
+  // Compute window around selection: prev, curr, next
+  const uint8_t prev = static_cast<uint8_t>((selectedIndex + count - 1) % count);
+  const uint8_t curr = selectedIndex % count;
+  const uint8_t next = static_cast<uint8_t>((selectedIndex + 1) % count);
+  const uint8_t order[3] = {prev, curr, next};
+
+  for (uint8_t i = 0; i < 3 && frame.lineCount < DisplayFrame::kMaxLines; ++i)
+  {
     DisplayLine& line = frame.lines[frame.lineCount++];
-    // Prefix selected item with caret '>' for clarity in both renderers
-    if (i == selectedIndex) {
+    // Center line is the selected one
+    if (i == 1)
+    {
       copyText(line.text, DisplayLine::kMaxLineLength, "> ");
-    } else {
+    }
+    else
+    {
       copyText(line.text, DisplayLine::kMaxLineLength, "  ");
     }
-    appendText(line.text, DisplayLine::kMaxLineLength, items[i]);
+    appendText(line.text, DisplayLine::kMaxLineLength, items[order[i]]);
     line.font = FontStyle::Body;
     line.y = ys[i];
   }

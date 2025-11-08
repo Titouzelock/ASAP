@@ -88,7 +88,7 @@ void test_defaults_and_clamp(void)
   PlayerSession s{};
   initDefaults(s);
   TEST_ASSERT_EQUAL_UINT8(kSessionVersion, s.version);
-  s.fire_exposure = 70000; // overflow -> truncated in assignment
+  s.fire_exposure = 65535; // max uint16_t, still above clamp range
   clampSession(s);
   TEST_ASSERT_LESS_OR_EQUAL_UINT16(kMaxExposure, s.fire_exposure);
 }

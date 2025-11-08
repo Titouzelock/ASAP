@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <stdint.h>
 
@@ -33,6 +33,7 @@ enum class State : uint8_t
   MenuRoot,
   MenuAnomaly,
   MenuTracking,
+  MenuPlayerData,
   MenuConfig,
   // Config submenu items
   MenuConfigInvertX,
@@ -119,12 +120,14 @@ class UIController
   static void RenderMenuRoot(UIController& self);
   static void RenderMenuAnomaly(UIController& self);
   static void RenderMenuTracking(UIController& self);
+  static void RenderMenuPlayerData(UIController& self);
   static void RenderMenuConfig(UIController& self);
   static void RenderMainAnomaly(UIController& self);
   static void RenderMainTracking(UIController& self);
 
   static void ActionMenuRoot(UIController& self, asap::input::JoyAction action);
   static void ActionMenuTracking(UIController& self, asap::input::JoyAction action);
+  static void ActionMenuPlayerData(UIController& self, asap::input::JoyAction action);
   static void ActionNoop(UIController& self, asap::input::JoyAction action);
 
   // Config submenu hooks
@@ -151,18 +154,20 @@ class UIController
   uint8_t anomalyTherm_;  // 0..100 arc progress (thermal)
   uint8_t anomalyChem_;   // 0..100 arc progress (chemical)
   uint8_t anomalyPsy_;    // 0..100 arc progress (psy)
-  uint8_t stageRad_;      // 0..3 stage → -, I, II, III
-  uint8_t stageTherm_;    // 0..3 stage → -, I, II, III
-  uint8_t stageChem_;     // 0..3 stage → -, I, II, III
-  uint8_t stagePsy_;      // 0..3 stage → -, I, II, III
+  uint8_t stageRad_;      // 0..3 stage â†’ -, I, II, III
+  uint8_t stageTherm_;    // 0..3 stage â†’ -, I, II, III
+  uint8_t stageChem_;     // 0..3 stage â†’ -, I, II, III
+  uint8_t stagePsy_;      // 0..3 stage â†’ -, I, II, III
 
   // Config flags (volatile; persistence TBD)
   // These flags are toggled via the Config submenu. They are intentionally
   // volatile for now; persistence will be added through a small settings API.
   bool invertX_ = false;       // swap LEFT/RIGHT actions
   bool invertY_ = false;       // swap UP/DOWN actions
-  bool rotateDisplay_ = false; // apply 180° rotation (U8g2 + native)
+  bool rotateDisplay_ = false; // apply 180Â° rotation (U8g2 + native)
 
+  // Player Data page scroll offset (first visible line index in virtual list)
+  uint16_t playerDataOffset_ = 0;
   // Long press gating
   bool firstActionDone_;   // becomes true after initial long-press
   bool centerPrev_;        // last sampled level for center button
@@ -182,7 +187,7 @@ class UIController
       Then implement them in UIController.cpp.
 
    2) If your page is a new menu item under an existing parent, add it to the
-      parent’s children array (e.g., extend kRootChildren) and adjust childCount.
+      parentâ€™s children array (e.g., extend kRootChildren) and adjust childCount.
 
    3) Add a PageNode entry in kPages with:
         - id, parent
@@ -221,8 +226,8 @@ class UIController
   */
 
   // Declarative navigation graph data
-  static inline constexpr State kRootChildren[3] = {
-      State::MenuAnomaly, State::MenuTracking, State::MenuConfig,
+  static inline constexpr State kRootChildren[4] = {
+      State::MenuAnomaly, State::MenuTracking, State::MenuPlayerData, State::MenuConfig,
   };
 
   static inline constexpr State kConfigChildren[5] = {
@@ -274,6 +279,32 @@ class UIController
           /*confirmTarget=*/State::MainTracking,
           /*onAction=*/&UIController::ActionMenuTracking,
           /*render=*/&UIController::RenderMenuTracking,
+      },
+      // Player Data page: scroll list; Left/Click back to root
+      {
+          State::MenuPlayerData,
+          /*parent=*/State::MenuRoot,
+          /*children=*/nullptr,
+          /*childCount=*/0,
+          /*backAction=*/asap::input::JoyAction::Left,
+          /*confirmMask=*/ActionBit(asap::input::JoyAction::Click),
+          /*confirm=*/ConfirmBehavior::GoToTarget,
+          /*confirmTarget=*/State::MenuRoot,
+          /*onAction=*/&UIController::ActionMenuPlayerData,
+          /*render=*/&UIController::RenderMenuPlayerData,
+      },
+      // Player Data page: scroll list; Left/Click back to root
+      {
+          State::MenuPlayerData,
+          /*parent=*/State::MenuRoot,
+          /*children=*/nullptr,
+          /*childCount=*/0,
+          /*backAction=*/asap::input::JoyAction::Left,
+          /*confirmMask=*/ActionBit(asap::input::JoyAction::Click),
+          /*confirm=*/ConfirmBehavior::GoToTarget,
+          /*confirmTarget=*/State::MenuRoot,
+          /*onAction=*/&UIController::ActionMenuPlayerData,
+          /*render=*/&UIController::RenderMenuPlayerData,
       },
       // Config menu page: Left back, no confirm target
       {
