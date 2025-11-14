@@ -3,6 +3,11 @@
 // The detector keeps one packed PlayerPersistent struct in the last flash
 // page (see StorageConfig). On save we erase/program that page and verify
 // by reading it back and recomputing the CRC.
+//
+// This file is only compiled for embedded targets (ASAP_EMBEDDED). The
+// native (host) backend lives in Storage_native.cpp.
+
+#ifdef ASAP_EMBEDDED
 
 #include "Storage.h"
 #include "StorageConfig.h"
@@ -182,3 +187,5 @@ void resetSession(PlayerState& state)
 }
 
 } // namespace asap::player
+
+#endif  // ASAP_EMBEDDED

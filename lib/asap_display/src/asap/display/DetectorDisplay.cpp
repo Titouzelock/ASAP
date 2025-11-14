@@ -3,12 +3,14 @@
 
 #include <stddef.h>
 
+#ifdef ASAP_EMBEDDED
 extern "C"
 {
 #include "stm32f1xx_hal.h"
 #include "main.h"
 #include <u8x8.h>
 }
+#endif
 
 namespace asap::display
 {
@@ -82,7 +84,8 @@ void appendNumber(char* dest, uint8_t maxLen, uint32_t value)
   dest[length] = '\0';
 }
 
-// HAL-backed GPIO/delay callback used by U8g2 software SPI.
+#ifdef ASAP_EMBEDDED
+// HAL-backed GPIO/delay callback used by U8g2 software SPI on embedded.
 uint8_t u8x8_gpio_and_delay_stm32(u8x8_t*,
                                   uint8_t msg,
                                   uint8_t argInt,
@@ -124,6 +127,7 @@ uint8_t u8x8_gpio_and_delay_stm32(u8x8_t*,
       return 0;
   }
 }
+#endif
 
 }  // namespace
 
@@ -382,6 +386,7 @@ DisplayFrame makeTrackingMainFrame(uint8_t trackingId,
   return frame;
 }
 
+#ifdef ASAP_EMBEDDED
 DetectorDisplay::DetectorDisplay(const DisplayPins& pins)
     : pins_(pins),
       u8g2_(),
@@ -555,5 +560,6 @@ void DetectorDisplay::drawMenuTag()
 void DetectorDisplay::drawProgressBar(const DisplayFrame&)
 {
 }
+#endif  // ASAP_EMBEDDED
 
 }  // namespace asap::display
