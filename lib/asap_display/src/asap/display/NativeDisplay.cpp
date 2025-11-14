@@ -1,4 +1,4 @@
-#ifndef ARDUINO
+#ifdef ASAP_NATIVE
 
 #include <asap/display/NativeDisplay.h>
 #include <asap/display/DisplayRenderer.h>
@@ -212,7 +212,7 @@ const DisplayFrame& NativeDisplay::lastFrame() const
 
 extern "C" void asap_display_native_anchor() {}
 
-#endif  // ARDUINO
+#endif  // ASAP_NATIVE
 //
 // NativeDisplay.cpp
 // Host implementation of the ASAP display using U8g2’s full buffer for the

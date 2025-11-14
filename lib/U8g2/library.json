@@ -1,0 +1,8 @@
+{
+  "name": "U8g2-vendored",
+  "version": "2.36.2",
+  "build": {
+    "srcDir": "src"
+  }
+}
+

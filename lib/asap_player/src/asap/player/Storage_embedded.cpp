@@ -1,7 +1,8 @@
 // Storage_embedded.cpp
-// Embedded (STM32 Arduino) implementation of persistence using HAL Flash APIs.
-// Erase/program a single page at kFlashBaseAddr_PlayerPersistent, then read-back verify.
-#ifdef ARDUINO
+// Embedded implementation of persistence using HAL Flash APIs.
+// The detector keeps one packed PlayerPersistent struct in the last flash
+// page (see StorageConfig). On save we erase/program that page and verify
+// by reading it back and recomputing the CRC.
 
 #include "Storage.h"
 #include "StorageConfig.h"
@@ -15,7 +16,8 @@
 namespace asap::player
 {
 
-// Byte-wise flash read into RAM buffer.
+// Byte-wise flash read into RAM buffer. This treats flash like a const
+// array of bytes and copies into a RAM struct.
 static void readFlash(uint32_t addr, void* dst, size_t len)
 {
   const uint8_t* p = reinterpret_cast<const uint8_t*>(addr);
@@ -180,5 +182,3 @@ void resetSession(PlayerState& state)
 }
 
 } // namespace asap::player
-
-#endif // ARDUINO

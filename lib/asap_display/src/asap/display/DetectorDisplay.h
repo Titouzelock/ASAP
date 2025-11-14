@@ -3,14 +3,22 @@
 #include <stdint.h>
 #include <asap/display/DisplayTypes.h>
 
-#ifdef ARDUINO
-#include <stdlib.h>
-#include <Arduino.h>
+#ifdef ASAP_NATIVE
+
+#include <asap/display/NativeDisplay.h>
+namespace asap { namespace display {
+using DetectorDisplay = ::asap::display::NativeDisplay;
+} }
+
+#else  // embedded HAL path
+
 #include <U8g2lib.h>
 
-namespace asap::display {
+namespace asap::display
+{
 
-class DetectorDisplay {
+class DetectorDisplay
+{
  public:
   explicit DetectorDisplay(const DisplayPins& pins);
 
@@ -42,7 +50,7 @@ class DetectorDisplay {
   void drawProgressBar(const DisplayFrame& frame);
 
   DisplayPins pins_;
-  U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2_;
+  ::U8G2 u8g2_;
   bool initialized_;
   DisplayFrame lastFrame_;
   FrameKind lastKind_;
@@ -50,20 +58,6 @@ class DetectorDisplay {
   bool rotation180_ = false;
 };
 
-} // namespace asap::display
-
-#else
-
-#include <asap/display/NativeDisplay.h>
-namespace asap { namespace display {
-using DetectorDisplay = ::asap::display::NativeDisplay;
-} }
+}  // namespace asap::display
 
 #endif
-//
-// DetectorDisplay.h
-// Embedded (STM32 + Arduino) display wrapper. Owns the SSD1322 U8g2 driver
-// and delegates all drawing to the shared U8g2 renderer so the UI remains in
-// sync with the native snapshot path. See DisplayTypes.h for the abstract UI
-// model and DisplayRenderer.* for draw routines.
-//

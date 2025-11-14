@@ -38,9 +38,9 @@ Coding Conventions
   - Types: `PascalCase` (`DetectorDisplay`, `UIController`).
   - Functions/methods/variables: `camelCase`.
   - Constants/macros: `kCamelCase` for constants (`kDisplayWidth`), UPPER_SNAKE for macros.
-- Includes:
+-- Includes:
   - Prefer logical include paths (`<asap/display/DetectorDisplay.h>`).
-  - Keep ARDUINO vs native specifics confined to the two thin wrappers (DetectorDisplay/NativeDisplay). Shared code (DisplayTypes/Renderer) is platform-neutral.
+  - Keep embedded HAL vs native specifics confined to the two thin wrappers (DetectorDisplay/NativeDisplay). Shared code (DisplayTypes/Renderer) is platform-neutral.
 
 Persistence Layer
 - Implemented in `lib/asap_player/` with parity for embedded (`Storage_embedded.cpp`) and native (`Storage_native.cpp`).
@@ -50,18 +50,18 @@ Persistence Layer
 
 MCU Constraints (STM32F103C8T6)
 - Keep embedded code feasible for 64 KB flash / 20 KB RAM class devices.
-- Use the existing `#ifdef ARDUINO` split:
-  - Embedded path: avoid heavy STL (no `<string>`, `<vector>`, `<fstream>` in ARDUINO code). Favor fixed buffers (`DisplayLine::kMaxLineLength`), `std::array`, and stack allocations.
+- Use the existing embedded (`!ASAP_NATIVE`) vs native (`ASAP_NATIVE`) split:
+  - Embedded path: avoid heavy STL (no `<string>`, `<vector>`, `<fstream>`). Favor fixed buffers (`DisplayLine::kMaxLineLength`), `std::array`, and stack allocations.
   - Native path: richer STL allowed for testing and snapshots.
 - Avoid exceptions and RTTI in embedded paths; do not rely on iostreams. Use `SerialUSB` for logs when needed.
 - Prefer non-allocating patterns in embedded code; no dynamic memory in hot paths.
-- Stick to U8g2 for OLED and Arduino SPI/GPIO APIs; avoid introducing platform-specific dependencies.
+- Stick to U8g2 for OLED with STM32Cube HAL GPIO/SPI on embedded and generic callbacks on native; avoid introducing additional display dependencies.
 
 When Adding or Modifying Code
-- Keep ARDUINO/native parity: update both code paths when behavior changes.
+- Keep embedded/native parity: update both code paths when behavior changes.
 - Maintain Allman style and the naming/indentation rules above.
 - Do not edit third-party resources in `lib/Unity` or `.pio` outputs.
 
 Verification Checklist (Quick)
 - For embedded changes to the Detector: build `pio run -e detector`.
-- No violations of MCU constraints (no heavy STL, exceptions, or iostreams in ARDUINO code).
+- No violations of MCU constraints (no heavy STL, exceptions, or iostreams in embedded code).

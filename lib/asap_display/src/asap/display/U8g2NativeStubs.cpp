@@ -1,4 +1,4 @@
-#ifndef ARDUINO
+#ifdef ASAP_NATIVE
 #include <stdint.h>
 extern "C" {
 #include <u8x8.h>

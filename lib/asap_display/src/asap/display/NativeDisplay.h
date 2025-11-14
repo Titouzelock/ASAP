@@ -1,6 +1,6 @@
 #pragma once
 
-#ifndef ARDUINO
+#ifdef ASAP_NATIVE
 
 #include <stdint.h>
 #include <vector>
@@ -51,7 +51,7 @@ class NativeDisplay
 
 }  // namespace asap::display
 
-#endif  // ARDUINO
+#endif  // ASAP_NATIVE
 //
 // NativeDisplay.h
 // Host-side U8g2 wrapper used by snapshot tests. Owns a plain U8G2 instance

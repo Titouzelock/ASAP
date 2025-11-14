@@ -1,15 +1,17 @@
-#include <Arduino.h>
+#include "stm32f1xx_hal.h"
+#include "main.h"
 
-void setup()
+int main(void)
 {
-}
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  MX_TIM2_Init();
 
-void loop()
-{
-  static uint32_t last = 0;
-  if (millis() - last > 1500)
+  for (;;)
   {
-    last = millis();
-    // logging removed to save flash (USB CDC disabled)
+    HAL_Delay(1500);
+    // Placeholder: anomaly behavior to be implemented.
   }
 }

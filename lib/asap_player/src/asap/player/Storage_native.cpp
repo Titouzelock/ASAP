@@ -1,7 +1,7 @@
 // Storage_native.cpp
 // Native (host) implementation of persistence via a file stub.
 // The file acts as a byte-accurate stand-in for flash memory.
-#ifndef ARDUINO
+#ifdef ASAP_NATIVE
 
 #include "Storage.h"
 #include "StorageConfig.h"
@@ -137,4 +137,4 @@ void resetSession(PlayerState& state)
 
 } // namespace asap::player
 
-#endif // !ARDUINO
+#endif  // ASAP_NATIVE

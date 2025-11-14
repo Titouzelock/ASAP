@@ -17,8 +17,8 @@ The project consists of a family of custom STM32-based devices communicating ove
 ## Technical Stack
 
 - **MCU Family:** STM32F103C8T6 ("Blue Pill")
-- **Framework:** Arduino for STM32 (via PlatformIO)
-- **Display:** SSD1322 OLED (U8g2 library)
+- **Framework:** STM32Cube HAL (via PlatformIO)
+- **Display:** SSD1322 OLED (U8g2 library, HAL GPIO/SPI backend)
 - **Radio:** CC1101 (433 MHz)
 - **Build System:** PlatformIO (multi-environment)
 - **Testing:** Unity (unit tests on native environment)

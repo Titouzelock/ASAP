@@ -1,7 +1,14 @@
-#include <Arduino.h>  // core Arduino API for STM32 targets
+#include "stm32f1xx_hal.h"
+#include "main.h"
+
+// Detector entrypoint for the STM32Cube (HAL) build.
+// This file replaces the old Arduino-style setup()/loop() with:
+// - HAL init and CubeMX-generated system/peripheral setup
+// - A simple heartbeat loop that drives the UI controller
+// - Button sampling mapped to JoyAction so native and embedded UI stay in sync
 
 #include <asap/display/DetectorDisplay.h>  // SSD1322 display driver abstraction
-#include <asap/input/Joystick.h>          // JoyAction for debug page
+#include <asap/input/Joystick.h>          // High-level JoyAction enum
 #include <asap/ui/UIController.h>         // UI state machine
 
 using asap::display::DetectorDisplay;
@@ -10,41 +17,86 @@ using asap::display::DisplayPins;
 namespace
 {
 
-// SPI wiring for the SSD1322 module on the detector PCB.
+// How often the UI controller is ticked.
+constexpr uint32_t kHeartbeatIntervalMs = 250;
+
+// SPI / GPIO wiring for the SSD1322 module on the detector PCB.
+// Pins follow ASAP.ioc labels and Core/Src/main.c GPIO init:
+// PA2 -> SSD_RESET, PA3 -> SSD_CS, PA4 -> SSD_DC.
 constexpr DisplayPins kDisplayPins = {
-    .chipSelect = PA4,
-    .dataCommand = PA3,
-    .reset = PA2,
+    /*chipSelect*/ SSD_CS_Pin,
+    /*dataCommand*/ SSD_DC_Pin,
+    /*reset*/ SSD_RESET_Pin,
 };
 
-constexpr uint32_t kHeartbeatIntervalMs = 250;  // refresh cadence for UI/serial
+// Global display + UI controller. The UIController only depends on the
+// abstract DetectorDisplay API, so the same state machine runs on native
+// and embedded builds.
+DetectorDisplay detectorDisplay(kDisplayPins);
+asap::ui::UIController ui(detectorDisplay);
+uint32_t lastHeartbeat = 0;  // last time the heartbeat ran
 
-DetectorDisplay detectorDisplay(kDisplayPins);  // global display instance
-uint32_t lastHeartbeat = 0;                     // last time the heartbeat ran
-asap::ui::UIController ui(detectorDisplay);     // UI controller
+// Sample buttons (UP/DOWN/LEFT/RIGHT/CLICK) and map to JoyAction.
+// Buttons are configured as GPIO inputs with pull-ups in MX_GPIO_Init.
+asap::input::JoyAction sampleButtons()
+{
+  if (HAL_GPIO_ReadPin(BUT_LEFT_GPIO_Port, BUT_LEFT_Pin) == GPIO_PIN_RESET)
+  {
+    return asap::input::JoyAction::Left;
+  }
+  if (HAL_GPIO_ReadPin(BUT_RIGHT_GPIO_Port, BUT_RIGHT_Pin) == GPIO_PIN_RESET)
+  {
+    return asap::input::JoyAction::Right;
+  }
+  if (HAL_GPIO_ReadPin(BUT_UP_GPIO_Port, BUT_UP_Pin) == GPIO_PIN_RESET)
+  {
+    return asap::input::JoyAction::Up;
+  }
+  if (HAL_GPIO_ReadPin(BUT_DOWN_GPIO_Port, BUT_DOWN_Pin) == GPIO_PIN_RESET)
+  {
+    return asap::input::JoyAction::Down;
+  }
+  if (HAL_GPIO_ReadPin(BUT_CLICK_GPIO_Port, BUT_CLICK_Pin) == GPIO_PIN_RESET)
+  {
+    return asap::input::JoyAction::Click;
+  }
+  return asap::input::JoyAction::Neutral;
+}
 
 }  // namespace
 
-void setup()
+// HAL-based application entry point.
+// HAL-based application entry point.
+int main(void)
 {
-  if (detectorDisplay.begin()) {
-    detectorDisplay.drawBootScreen(ASAP_VERSION);  // show boot splash
-  } else {
-    // no-op: logging disabled to save flash (USB CDC removed)
-  }
-}
+  // Bring up the HAL, system clock and all GPIO/UART/TIM peripherals
+  // configured in CubeMX. The MX_* functions are defined in Core/Src/main.c.
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  MX_TIM2_Init();
 
-void loop()
-{
-  const uint32_t now = millis();  // current uptime snapshot
-  if (now - lastHeartbeat >= kHeartbeatIntervalMs)
+  if (detectorDisplay.begin())
   {
-    lastHeartbeat = now;
-    // heartbeat log removed (USB CDC disabled)
+    detectorDisplay.drawBootScreen(ASAP_VERSION);
+  }
 
-    // TODO: Read actual joystick hardware states.
-    const bool centerDown = false;  // placeholder until hardware driver is wired
-    const asap::input::JoyAction action = asap::input::JoyAction::Neutral;
-    ui.onTick(now, {centerDown, action});
+  lastHeartbeat = HAL_GetTick();
+
+  // Main heartbeat loop: periodically sample input and tick the UI.
+  while (true)
+  {
+    const uint32_t now = HAL_GetTick();
+    if (now - lastHeartbeat >= kHeartbeatIntervalMs)
+    {
+      lastHeartbeat = now;
+
+      // Center button is used for the long-press "enter menu" gesture.
+      const bool centerDown =
+          (HAL_GPIO_ReadPin(BUT_CLICK_GPIO_Port, BUT_CLICK_Pin) == GPIO_PIN_RESET);
+      const asap::input::JoyAction action = sampleButtons();
+      ui.onTick(now, {centerDown, action});
+    }
   }
 }
