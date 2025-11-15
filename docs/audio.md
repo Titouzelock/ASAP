@@ -6,13 +6,13 @@ This document describes the rebuilt ASAP audio engine used both on the STM32 fir
 
 - Core engine sample rate: `16 kHz` (MCU and native).
 - Snapshot output sample rate: `48 kHz` mono, 16-bit PCM.
-- Native snapshots upsample the 16 kHz engine output using zero-order hold ×3,
+- Native snapshots upsample the 16 kHz engine output using zero-order hold ï¿½3,
   then pass the 48 kHz stream through a 2-pole RC low-pass filter before
   writing WAV files.
 
 Signal chain for snapshots:
 
-`engine (16 kHz) ? ZOH×3 (48 kHz) ? 2-pole RC (fc ˜ 7.2 kHz) ? WAV`
+`engine (16 kHz) ? ZOHï¿½3 (48 kHz) ? 2-pole RC (fc ï¿½ 7.2 kHz) ? WAV`
 
 ## Geiger Engine
 
@@ -35,7 +35,7 @@ Signal chain for snapshots:
   - A 16-bit fixed-point attack envelope LUT is generated on first use:
     - Starts at `kGeigerAttackInitialEnv` (65535).
     - Decays sample-by-sample by multiplying with
-      `kGeigerAttackDecayFactor / 65536` (˜ 0.94).
+      `kGeigerAttackDecayFactor / 65536` (0.94).
   - Each attack sample is:
     - `wave = (attackSample * attackEnv) >> 16`.
 
@@ -46,7 +46,7 @@ Signal chain for snapshots:
   - 16-bit phase accumulator, step set so that `440 Hz @ 16 kHz`.
   - Small per-sample random **frequency jitter**:
     - Jitter extracted from the LFSR via `kGeigerTailJitterMask` and
-      `kGeigerTailJitterOffset` (˜ ±2% of the nominal phase step).
+      `kGeigerTailJitterOffset` (2% of the nominal phase step).
   - Wideband **noise** mixed with the tone:
     - Noise value built from the LFSR using `kGeigerTailNoiseMask` and
       `kGeigerTailNoiseOffset`, scaled by the tail envelope.
@@ -57,9 +57,9 @@ Signal chain for snapshots:
     - `kGeigerTailInitialEnv` (typically 65535, configurable).
   - Per-sample decay:
     - `tailEnv = (tailEnv * kGeigerTailDecayFactor) >> 16;`
-    - `kGeigerTailDecayFactor / 65536` ˜ 0.996 by default.
+    - `kGeigerTailDecayFactor / 65536`  0.996 by default.
   - Tail life is limited by:
-    - `kGeigerTailMaxSamples` (˜80 ms at 16 kHz).
+    - `kGeigerTailMaxSamples` (80 ms at 16 kHz).
 
 ### Bursts
 
@@ -136,9 +136,9 @@ Each snapshot uses the same pipeline:
 2. Trigger the appropriate Geiger and/or beep events.
 3. For each 48 kHz output sample:
    - Fetch a new 16 kHz engine sample every 3rd tick using
-     `asap_audio_get_sample()`; hold the value in between (ZOH×3).
+     `asap_audio_get_sample()`; hold the value in between (ZOHï¿½3).
    - Normalize to `[-1, 1]` and run through the 2-pole RC filter
-     (fc ˜ 7.2 kHz).
+     (fc ï¿½ 7.2 kHz).
    - Convert back to 16-bit PCM and write to the WAV buffer.
 
 This snapshot flow acts as the audio UI contract across firmware and native
