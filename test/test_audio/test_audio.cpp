@@ -205,74 +205,9 @@ void renderSnapshot(int16_t* buffer,
 
 // Triggers for the different snapshots.
 
-void triggerGeigerClick()
+void triggerGeigerHybridSingle()
 {
   geiger_trigger_click();
-}
-
-void triggerGeigerSingleReal()
-{
-  geiger_trigger_click();
-}
-
-void triggerGeigerResonantStalker()
-{
-  geiger_trigger_click_resonant_stalker();
-}
-
-void triggerGeigerResonantStalkerSnappyMid()
-{
-  geiger_trigger_click_resonant_stalker_snappy_mid();
-}
-
-void triggerGeigerResonantStalkerSnappyStrong()
-{
-  geiger_trigger_click_resonant_stalker_snappy_strong();
-}
-
-void triggerGeigerResonantMetallic()
-{
-  geiger_trigger_click_resonant_metallic();
-}
-
-void triggerGeigerResonantMetallicSnappyMid()
-{
-  geiger_trigger_click_resonant_metallic_snappy_mid();
-}
-
-void triggerGeigerResonantMetallicSnappyStrong()
-{
-  geiger_trigger_click_resonant_metallic_snappy_strong();
-}
-
-void triggerGeigerResonantSciFi()
-{
-  geiger_trigger_click_resonant_scifi();
-}
-
-void triggerGeigerResonantSciFiSnappyMid()
-{
-  geiger_trigger_click_resonant_scifi_snappy_mid();
-}
-
-void triggerGeigerResonantSciFiSnappyStrong()
-{
-  geiger_trigger_click_resonant_scifi_snappy_strong();
-}
-
-void triggerGeigerResonantBio()
-{
-  geiger_trigger_click_resonant_bio();
-}
-
-void triggerGeigerResonantBioSnappyMid()
-{
-  geiger_trigger_click_resonant_bio_snappy_mid();
-}
-
-void triggerGeigerResonantBioSnappyStrong()
-{
-  geiger_trigger_click_resonant_bio_snappy_strong();
 }
 
 void triggerGeigerBurst3()
@@ -283,26 +218,6 @@ void triggerGeigerBurst3()
 void triggerGeigerBurst5()
 {
   geiger_trigger_burst(5, 5);
-}
-
-void triggerBeepSingle()
-{
-  beep_pattern_start(static_cast<uint8_t>(asap::audio::BeepPattern::Single));
-}
-
-void triggerBeepDouble()
-{
-  beep_pattern_start(static_cast<uint8_t>(asap::audio::BeepPattern::Double));
-}
-
-void triggerBeepError()
-{
-  beep_pattern_start(static_cast<uint8_t>(asap::audio::BeepPattern::Error));
-}
-
-void triggerBeepAlert()
-{
-  beep_pattern_start(static_cast<uint8_t>(asap::audio::BeepPattern::Alert));
 }
 
 // Extern used by Unity via DllImport: returns one filtered sample at 48 kHz.
@@ -365,86 +280,15 @@ void test_audio_snapshots_generate_wav_files()
 
   int16_t* buffer = new int16_t[totalSamples];
 
-  // Geiger click
-  renderSnapshot(buffer, totalSamples, &triggerGeigerClick);
-  writeWav16Mono(dir / "geiger_click.wav", buffer, totalSamples);
+  // Hybrid Geiger click snapshots
+  renderSnapshot(buffer, totalSamples, &triggerGeigerHybridSingle);
+  writeWav16Mono(dir / "geiger_hybrid_single.wav", buffer, totalSamples);
 
-  // Real single click with 16 kHz engine and kernel.
-  renderSnapshot(buffer, totalSamples, &triggerGeigerSingleReal);
-  writeWav16Mono(dir / "geiger_single_click.wav", buffer, totalSamples);
-
-  // Resonant Geiger clicks (attack variants)
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantStalker);
-  writeWav16Mono(dir / "geiger_resonant_stalker_default.wav",
-                 buffer,
-                 totalSamples);
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantStalkerSnappyMid);
-  writeWav16Mono(dir / "geiger_resonant_stalker_snappy_mid.wav",
-                 buffer,
-                 totalSamples);
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantStalkerSnappyStrong);
-  writeWav16Mono(dir / "geiger_resonant_stalker_snappy_strong.wav",
-                 buffer,
-                 totalSamples);
-
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantMetallic);
-  writeWav16Mono(dir / "geiger_resonant_metallic_default.wav",
-                 buffer,
-                 totalSamples);
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantMetallicSnappyMid);
-  writeWav16Mono(dir / "geiger_resonant_metallic_snappy_mid.wav",
-                 buffer,
-                 totalSamples);
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantMetallicSnappyStrong);
-  writeWav16Mono(dir / "geiger_resonant_metallic_snappy_strong.wav",
-                 buffer,
-                 totalSamples);
-
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantSciFi);
-  writeWav16Mono(dir / "geiger_resonant_scifi_default.wav",
-                 buffer,
-                 totalSamples);
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantSciFiSnappyMid);
-  writeWav16Mono(dir / "geiger_resonant_scifi_snappy_mid.wav",
-                 buffer,
-                 totalSamples);
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantSciFiSnappyStrong);
-  writeWav16Mono(dir / "geiger_resonant_scifi_snappy_strong.wav",
-                 buffer,
-                 totalSamples);
-
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantBio);
-  writeWav16Mono(dir / "geiger_resonant_bio_default.wav",
-                 buffer,
-                 totalSamples);
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantBioSnappyMid);
-  writeWav16Mono(dir / "geiger_resonant_bio_snappy_mid.wav",
-                 buffer,
-                 totalSamples);
-  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantBioSnappyStrong);
-  writeWav16Mono(dir / "geiger_resonant_bio_snappy_strong.wav",
-                 buffer,
-                 totalSamples);
-
-  // Burst examples
   renderSnapshot(buffer, totalSamples, &triggerGeigerBurst3);
-  writeWav16Mono(dir / "geiger_burst_3_clicks.wav", buffer, totalSamples);
+  writeWav16Mono(dir / "geiger_hybrid_burst3.wav", buffer, totalSamples);
 
   renderSnapshot(buffer, totalSamples, &triggerGeigerBurst5);
-  writeWav16Mono(dir / "geiger_burst_5_clicks.wav", buffer, totalSamples);
-
-  // Beep patterns
-  renderSnapshot(buffer, totalSamples, &triggerBeepSingle);
-  writeWav16Mono(dir / "beep_single.wav", buffer, totalSamples);
-
-  renderSnapshot(buffer, totalSamples, &triggerBeepDouble);
-  writeWav16Mono(dir / "beep_double.wav", buffer, totalSamples);
-
-  renderSnapshot(buffer, totalSamples, &triggerBeepError);
-  writeWav16Mono(dir / "beep_error.wav", buffer, totalSamples);
-
-  renderSnapshot(buffer, totalSamples, &triggerBeepAlert);
-  writeWav16Mono(dir / "beep_alert.wav", buffer, totalSamples);
+  writeWav16Mono(dir / "geiger_hybrid_burst5.wav", buffer, totalSamples);
 
   delete[] buffer;
 }

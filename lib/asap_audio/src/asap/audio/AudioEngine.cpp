@@ -16,8 +16,8 @@ struct GeigerState
   uint16_t position;
   bool active;
   uint8_t envelope;
-  GeigerClickType type;
-  GeigerAttackShape attackShape;
+  uint8_t tailEnvelope;
+  uint16_t tailPhase;
 };
 
 GeigerState gGeiger{
@@ -25,32 +25,56 @@ GeigerState gGeiger{
     /*position=*/0U,
     /*active=*/false,
     /*envelope=*/0U,
-    /*type=*/GeigerClickType::Short,
-    /*attackShape=*/GeigerAttackShape::Default,
+    /*tailEnvelope=*/0U,
+    /*tailPhase=*/0U,
 };
 
-static const int8_t spark8_stalker[8] = {
-    0, 100, -80, 60, -40, 20, -10, 0,
+// Hybrid Geiger click: 64-sample real attack captured from a measured waveform.
+static const int16_t realAttack64[64] = {
+    -26612, -15939,  24189,  32767,   5658, -21471, -15114,  11338,
+     30639,  28004,   1996, -31360, -28663,   4494,  18426,   7844,
+    -14819, -30689,  -1667,  19378,   2287, -16351,  -9988,  -3017,
+      2211,   1420,  -8898,  -5941,   5718,   8788,  -2425,  -2312,
+      2107,   2639,   4447,   7048,   2570,   2237,   7563,   6984,
+      3515,   3657,   3819,   3198,   3517,   -946,  -4220,   1274,
+      4574,     46,  -3741,  -3540,  -2690,  -2745,  -2499,  -4711,
+     -6084,  -4363,  -2644,  -3323,  -3966,  -4482,  -3431,  -1200
 };
 
-static const int8_t spark8_metallic[8] = {
-    0, 110, -90, 70, -55, 40, -20, 0,
-};
-
-static const int8_t spark8_scifi[8] = {
-    0, 127, -95, 50, -20, 5, 0, 0,
-};
-
-static const int8_t spark8_bio[8] = {
-    0, 70, -60, 45, -30, 15, -5, 0,
-};
-
-// Real-data 32-sample kernel derived from an analyzed Geiger waveform.
-static const int8_t kGeigerClickKernel32[32] = {
-    -97,  -57,   95,  127,   25,  -77,  -53,   46,
-    119,  109,   11, -115, -104,   20,   73,   33,
-    -52, -112,   -3,   77,   12,  -58,  -34,   -8,
-     12,    9,  -30,  -19,   25,   37,   -6,   -5,
+// 256-entry sine lookup table covering 0..2π, scaled to int16_t.
+static const int16_t kSinLut16[256] = {
+    0,    804,   1608,  2410,  3212,  4011,  4808,  5602,
+    6393, 7179,  7962,  8739,  9512,  10278, 11039, 11793,
+    12539,13278, 14010, 14732, 15446, 16150, 16846, 17530,
+    18204,18868, 19519, 20159, 20787, 21402, 22004, 22594,
+    23170,23731, 24279, 24811, 25329, 25832, 26319, 26790,
+    27246,27684, 28107, 28511, 28899, 29269, 29621, 29956,
+    30272,30571, 30851, 31113, 31356, 31580, 31785, 31971,
+    32137,32285, 32413, 32522, 32611, 32681, 32731, 32762,
+    32767,32762, 32731, 32681, 32611, 32522, 32413, 32285,
+    32137,31971, 31785, 31580, 31356, 31113, 30851, 30571,
+    30272,29956, 29621, 29269, 28899, 28511, 28107, 27684,
+    27246,26790, 26319, 25832, 25329, 24811, 24279, 23731,
+    23170,22594, 22004, 21402, 20787, 20159, 19519, 18868,
+    18204,17530, 16846, 16150, 15446, 14732, 14010, 13278,
+    12539,11793, 11039, 10278, 9512,  8739,  7962,  7179,
+    6393, 5602,  4808,  4011,  3212,  2410,  1608,  804,
+    0,    -804,  -1608, -2410, -3212, -4011, -4808, -5602,
+    -6393,-7179, -7962, -8739, -9512, -10278,-11039,-11793,
+    -12539,-13278,-14010,-14732,-15446,-16150,-16846,-17530,
+    -18204,-18868,-19519,-20159,-20787,-21402,-22004,-22594,
+    -23170,-23731,-24279,-24811,-25329,-25832,-26319,-26790,
+    -27246,-27684,-28107,-28511,-28899,-29269,-29621,-29956,
+    -30272,-30571,-30851,-31113,-31356,-31580,-31785,-31971,
+    -32137,-32285,-32413,-32522,-32611,-32681,-32731,-32762,
+    -32767,-32762,-32731,-32681,-32611,-32522,-32413,-32285,
+    -32137,-31971,-31785,-31580,-31356,-31113,-30851,-30571,
+    -30272,-29956,-29621,-29269,-28899,-28511,-28107,-27684,
+    -27246,-26790,-26319,-25832,-25329,-24811,-24279,-23731,
+    -23170,-22594,-22004,-21402,-20787,-20159,-19519,-18868,
+    -18204,-17530,-16846,-16150,-15446,-14732,-14010,-13278,
+    -12539,-11793,-11039,-10278,-9512, -8739, -7962, -7179,
+    -6393,-5602, -4808, -4011, -3212, -2410, -1608, -804
 };
 
 struct BurstState
@@ -115,16 +139,6 @@ int16_t generateNoiseSample()
   return raw;
 }
 
-int16_t generateHFNoise()
-{
-  static int16_t previous = 0;
-  const int16_t current = generateNoiseSample();
-  const int16_t out = static_cast<int16_t>(
-      static_cast<int32_t>(current) - static_cast<int32_t>(previous));
-  previous = current;
-  return out;
-}
-
 int16_t geigerSampleInternal()
 {
   if (!gGeiger.active)
@@ -138,90 +152,61 @@ int16_t geigerSampleInternal()
     return 0;
   }
 
+  const uint16_t pos = gGeiger.position;
   ++gGeiger.position;
 
-  // Two-stage envelope derived from measured Geiger data:
-  // - Stage A (attack region): faster decay
-  // - Stage B (tail region): slow decay
-  uint16_t attackDecay = 241U;  // default ~0.94 per sample
-  uint16_t tailDecay = 255U;    // default ~0.996 per sample
-
-  switch (gGeiger.attackShape)
-  {
-    case GeigerAttackShape::Snappier1:
-      attackDecay = 180U;
-      tailDecay = 250U;
-      break;
-    case GeigerAttackShape::Snappier2:
-      attackDecay = 160U;
-      tailDecay = 245U;
-      break;
-    default:
-      attackDecay = 241U;
-      tailDecay = 255U;
-      break;
-  }
-
-  const uint16_t decay =
-      (gGeiger.position < kGeigerClickAttackSamples) ? attackDecay : tailDecay;
-
-  gGeiger.envelope = static_cast<uint8_t>(
-      (static_cast<uint16_t>(gGeiger.envelope) * decay) >> 8U);
-
-  if (gGeiger.envelope == 0U)
-  {
-    gGeiger.active = false;
-    return 0;
-  }
+  uint16_t masterEnv = gGeiger.envelope;
+  uint16_t tailEnv = gGeiger.tailEnvelope;
 
   int32_t wave = 0;
-
-  // Real-data kernel applied over the first 32 samples.
-  if (gGeiger.position < 32U)
+  if (pos < kGeigerClickAttackSamples)
   {
-    wave += static_cast<int16_t>(
-        static_cast<int16_t>(kGeigerClickKernel32[gGeiger.position]) << 7);
+    // ATTACK: fast decay on master envelope, tail envelope held full.
+    masterEnv = static_cast<uint16_t>((masterEnv * 241U) >> 8U);
+    tailEnv = kGeigerMaxEnvelope;
+
+    const int16_t attackSample = realAttack64[pos];
+    wave = static_cast<int32_t>(attackSample) *
+           static_cast<int32_t>(masterEnv);
   }
-
-  const int8_t* kernel = nullptr;
-  switch (gGeiger.type)
+  else
   {
-    case GeigerClickType::ResonantStalker:
-      kernel = spark8_stalker;
-      break;
-    case GeigerClickType::ResonantMetallic:
-      kernel = spark8_metallic;
-      break;
-    case GeigerClickType::ResonantSciFi:
-      kernel = spark8_scifi;
-      break;
-    case GeigerClickType::ResonantBio:
-      kernel = spark8_bio;
-      break;
-    default:
-      break;
-  }
+    // TAIL: master envelope full, slow decay on tail envelope only.
+    masterEnv = kGeigerMaxEnvelope;
+    tailEnv = static_cast<uint16_t>((tailEnv * 255U) >> 8U);
 
-  if (kernel != nullptr && gGeiger.position < 8U)
-  {
-    wave += static_cast<int16_t>(static_cast<int32_t>(
-        static_cast<int16_t>(kernel[gGeiger.position]) << 7));
-  }
-
-  int32_t scaled = (wave * static_cast<int32_t>(gGeiger.envelope)) >> 8;
-
-  // Optional attack overshoot for the strongest snappy variants: slightly
-  // boost the very first samples to create a sharper transient.
-  if (gGeiger.attackShape == GeigerAttackShape::Snappier2)
-  {
-    if (gGeiger.position == 0U)
+    if (tailEnv == 0U)
     {
-      scaled = (scaled * 140) / 100;  // +40%
+      gGeiger.active = false;
+      gGeiger.envelope = 0U;
+      gGeiger.tailEnvelope = 0U;
+      return 0;
     }
-    else if (gGeiger.position == 1U)
-    {
-      scaled = (scaled * 120) / 100;  // +20%
-    }
+
+    constexpr uint16_t kTailPhaseStep = 1802U;  // 440 Hz @ 16 kHz
+    gGeiger.tailPhase =
+        static_cast<uint16_t>(gGeiger.tailPhase + kTailPhaseStep);
+    const uint8_t phaseIndex =
+        static_cast<uint8_t>(gGeiger.tailPhase >> 8);
+    const int16_t sinSample = kSinLut16[phaseIndex];
+
+    wave = static_cast<int32_t>(sinSample) *
+           static_cast<int32_t>(tailEnv);
+  }
+
+  gGeiger.envelope = static_cast<uint8_t>(masterEnv);
+  gGeiger.tailEnvelope = static_cast<uint8_t>(tailEnv);
+
+  // Single scaling stage for both attack and tail.
+  int32_t scaled = wave >> 8;
+
+  if (scaled > 32767)
+  {
+    scaled = 32767;
+  }
+  else if (scaled < -32768)
+  {
+    scaled = -32768;
   }
 
   return static_cast<int16_t>(scaled);
@@ -435,8 +420,8 @@ void init()
   gGeiger.position = 0U;
   gGeiger.active = false;
   gGeiger.envelope = 0U;
-  gGeiger.type = GeigerClickType::Short;
-  gGeiger.attackShape = GeigerAttackShape::Default;
+  gGeiger.tailEnvelope = 0U;
+  gGeiger.tailPhase = 0U;
 
   gBeep.phase = 0U;
   gBeep.phaseStep = 0U;
@@ -459,44 +444,8 @@ void geigerTriggerClick()
   gGeiger.position = 0U;
   gGeiger.active = true;
   gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::Short;
-  gGeiger.attackShape = GeigerAttackShape::Default;
-}
-
-void geigerTriggerClickResonantStalker()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantStalker;
-  gGeiger.attackShape = GeigerAttackShape::Default;
-}
-
-void geigerTriggerClickResonantMetallic()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantMetallic;
-  gGeiger.attackShape = GeigerAttackShape::Default;
-}
-
-void geigerTriggerClickResonantSciFi()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantSciFi;
-  gGeiger.attackShape = GeigerAttackShape::Default;
-}
-
-void geigerTriggerClickResonantBio()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantBio;
-  gGeiger.attackShape = GeigerAttackShape::Default;
+  gGeiger.tailEnvelope = kGeigerMaxEnvelope;
+  gGeiger.tailPhase = 0U;
 }
 
 void geigerTriggerBurst(uint8_t countMin, uint8_t countMax)
@@ -516,82 +465,7 @@ void geigerTriggerBurst(uint8_t countMin, uint8_t countMax)
   gBurst.nextTriggerDelay = randomInRange(64U, 960U);  // 4–60 ms at 16 kHz
 }
 
-void geigerTriggerClickResonantStalkerSnappyMid()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantStalker;
-  gGeiger.attackShape = GeigerAttackShape::Snappier1;
-}
 
-void geigerTriggerClickResonantMetallicSnappyMid()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantMetallic;
-  gGeiger.attackShape = GeigerAttackShape::Snappier1;
-}
-
-void geigerTriggerClickResonantSciFiSnappyMid()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantSciFi;
-  gGeiger.attackShape = GeigerAttackShape::Snappier1;
-}
-
-void geigerTriggerClickResonantBioSnappyMid()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantBio;
-  gGeiger.attackShape = GeigerAttackShape::Snappier1;
-}
-
-void geigerTriggerClickResonantStalkerSnappyStrong()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantStalker;
-  gGeiger.attackShape = GeigerAttackShape::Snappier2;
-}
-
-void geigerTriggerClickResonantMetallicSnappyStrong()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantMetallic;
-  gGeiger.attackShape = GeigerAttackShape::Snappier2;
-}
-
-void geigerTriggerClickResonantSciFiSnappyStrong()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantSciFi;
-  gGeiger.attackShape = GeigerAttackShape::Snappier2;
-}
-
-void geigerTriggerClickResonantBioSnappyStrong()
-{
-  gGeiger.position = 0U;
-  gGeiger.active = true;
-  gGeiger.envelope = kGeigerMaxEnvelope;
-  gGeiger.type = GeigerClickType::ResonantBio;
-  gGeiger.attackShape = GeigerAttackShape::Snappier2;
-}
-
-int16_t geigerGetSample()
-{
-  return geigerSampleInternal();
-}
 
 void beepStart(uint16_t freqHz, uint16_t durationMs, uint8_t level0_255)
 {
@@ -639,14 +513,19 @@ int16_t getSample()
   // Burst scheduler: non-blocking Geiger click bursts.
   if (gBurst.active)
   {
+    // Ensure delays stay in the configured 2–32 ms window.
+    if (gBurst.nextTriggerDelay < 32U || gBurst.nextTriggerDelay > 512U)
+    {
+      gBurst.nextTriggerDelay = randomInRange(32U, 512U);
+    }
+
     if (gBurst.nextTriggerDelay > 0U)
     {
       --gBurst.nextTriggerDelay;
     }
     if (gBurst.nextTriggerDelay == 0U && gBurst.remaining > 0U)
     {
-      // For bursts, use the Stalker resonant click as the default voice.
-      geigerTriggerClickResonantStalker();
+      geigerTriggerClick();
       --gBurst.remaining;
       if (gBurst.remaining == 0U)
       {
@@ -654,7 +533,7 @@ int16_t getSample()
       }
       else
       {
-        gBurst.nextTriggerDelay = randomInRange(64U, 960U);
+        gBurst.nextTriggerDelay = randomInRange(32U, 512U);
       }
     }
   }
@@ -685,70 +564,7 @@ void geiger_trigger_click()
   asap::audio::geigerTriggerClick();
 }
 
-int16_t geiger_get_sample()
-{
-  return asap::audio::geigerGetSample();
-}
 
-void geiger_trigger_click_resonant_stalker()
-{
-  asap::audio::geigerTriggerClickResonantStalker();
-}
-
-void geiger_trigger_click_resonant_metallic()
-{
-  asap::audio::geigerTriggerClickResonantMetallic();
-}
-
-void geiger_trigger_click_resonant_scifi()
-{
-  asap::audio::geigerTriggerClickResonantSciFi();
-}
-
-void geiger_trigger_click_resonant_bio()
-{
-  asap::audio::geigerTriggerClickResonantBio();
-}
-
-void geiger_trigger_click_resonant_stalker_snappy_mid()
-{
-  asap::audio::geigerTriggerClickResonantStalkerSnappyMid();
-}
-
-void geiger_trigger_click_resonant_metallic_snappy_mid()
-{
-  asap::audio::geigerTriggerClickResonantMetallicSnappyMid();
-}
-
-void geiger_trigger_click_resonant_scifi_snappy_mid()
-{
-  asap::audio::geigerTriggerClickResonantSciFiSnappyMid();
-}
-
-void geiger_trigger_click_resonant_bio_snappy_mid()
-{
-  asap::audio::geigerTriggerClickResonantBioSnappyMid();
-}
-
-void geiger_trigger_click_resonant_stalker_snappy_strong()
-{
-  asap::audio::geigerTriggerClickResonantStalkerSnappyStrong();
-}
-
-void geiger_trigger_click_resonant_metallic_snappy_strong()
-{
-  asap::audio::geigerTriggerClickResonantMetallicSnappyStrong();
-}
-
-void geiger_trigger_click_resonant_scifi_snappy_strong()
-{
-  asap::audio::geigerTriggerClickResonantSciFiSnappyStrong();
-}
-
-void geiger_trigger_click_resonant_bio_snappy_strong()
-{
-  asap::audio::geigerTriggerClickResonantBioSnappyStrong();
-}
 
 void geiger_trigger_burst(uint8_t countMin, uint8_t countMax)
 {

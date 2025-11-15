@@ -40,11 +40,8 @@ The public entry points are:
 
 - `void asap_audio_init();`
 - `int16_t asap_audio_get_sample();`
-- `void geiger_trigger_click();`
-- `void geiger_trigger_click_resonant_stalker();`
-- `void geiger_trigger_click_resonant_metallic();`
-- `void geiger_trigger_click_resonant_scifi();`
-- `void geiger_trigger_click_resonant_bio();`
+- `void geiger_trigger_click();`  // hybrid click (real attack + 440 Hz tail)
+- `void geiger_trigger_burst(uint8_t countMin, uint8_t countMax);`
 - `int16_t geiger_get_sample();`
 - `void beep_start(uint16_t freqHz, uint16_t durationMs, uint8_t level0_255);`
 - `int16_t beep_get_sample();`
@@ -61,6 +58,17 @@ The native build also includes C++ namespaced APIs in
   returns one signed 16-bit sample.
 
 ### Geiger Click Synthesis
+
+The current Geiger engine uses a single **hybrid click**:
+
+- A stored 64-sample real attack waveform (captured from a Geiger recording).
+- A synthesized 440 Hz resonant tail (damped sinusoid).
+- A two-stage fixed-point envelope: fast attack decay, slower tail decay.
+- A simplified burst scheduler that fires 3–5 hybrid clicks with 2–32 ms spacing.
+
+The legacy description below (noise + HF emphasis + multiple resonant types)
+is kept for historical context; the implementation now maps all Geiger clicks
+to the hybrid model described above.
 
 The geiger engine generates short broadband clicks using a 16-bit LFSR, a
 high-frequency (HF) emphasis stage, and an exponential envelope. Multiple
