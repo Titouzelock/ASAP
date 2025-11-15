@@ -22,6 +22,7 @@
 #include "stm32f1xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdint.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,9 +57,11 @@
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim3;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
-
+// Audio engine C wrapper (defined in lib/asap_audio).
+extern int16_t asap_audio_get_sample(void);
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -211,6 +214,40 @@ void TIM2_IRQHandler(void)
   /* USER CODE BEGIN TIM2_IRQn 1 */
 
   /* USER CODE END TIM2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM3 global interrupt.
+  */
+void TIM3_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM3_IRQn 0 */
+
+  /* USER CODE END TIM3_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim3);
+  /* USER CODE BEGIN TIM3_IRQn 1 */
+  // 8 kHz audio sample clock: fetch the next mixed sample from the MCU audio
+  // engine and map it to the TIM2 PWM duty cycle on channel 1 (PA0).
+  int16_t sample = asap_audio_get_sample();
+  int32_t shifted = (int32_t)sample + 32768;
+  if (shifted < 0)
+  {
+    shifted = 0;
+  }
+  else if (shifted > 65535)
+  {
+    shifted = 65535;
+  }
+
+  uint32_t duty =
+      (uint32_t)((shifted * 720) >> 16);  // maps 0..65535 -> 0..719
+  if (duty > 719)
+  {
+    duty = 719;
+  }
+
+  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, duty);
+  /* USER CODE END TIM3_IRQn 1 */
 }
 
 /**

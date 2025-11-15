@@ -6,11 +6,14 @@ namespace asap::audio
 {
 
 // Core engine configuration
-constexpr uint32_t kSampleRateHz = 8000U;
+constexpr uint32_t kAudioSampleRate = 16000U;
+constexpr uint32_t kSampleRateHz = kAudioSampleRate;
 
-// Geiger click parameters
-constexpr uint16_t kGeigerClickLengthSamples = 40U;   // ~5 ms at 8 kHz
-constexpr uint8_t kGeigerMaxEnvelope = 255U;          // start envelope level
+// Geiger click parameters (16 kHz engine)
+constexpr uint8_t kGeigerMaxEnvelope = 255U;  // start envelope level
+// Real-model click timing derived from a 16 kHz kernel analysis.
+constexpr uint16_t kGeigerClickAttackSamples = 64U;   // ~4 ms at 16 kHz
+constexpr uint16_t kGeigerClickTotalSamples = 1280U;  // ~80 ms at 16 kHz
 
 // When a beep is active, the geiger channel is attenuated by this factor
 // (fixed-point: value / 256.0f). 102 ~= 0.4.
@@ -51,4 +54,3 @@ enum class BeepPattern : uint8_t
 };
 
 }  // namespace asap::audio
-

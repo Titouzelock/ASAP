@@ -12,6 +12,18 @@
 #include <asap/ui/UIController.h>         // UI state machine
 #include <asap/audio/AudioEngine.h>       // MCU audio engine (geiger + beeps)
 
+extern "C"
+{
+void SystemClock_Config(void);
+void MX_GPIO_Init(void);
+void MX_USART1_UART_Init(void);
+void MX_TIM2_Init(void);
+void MX_TIM3_Init(void);
+
+extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim3;
+}
+
 using asap::display::DetectorDisplay;
 using asap::display::DisplayPins;
 
@@ -36,7 +48,6 @@ constexpr DisplayPins kDisplayPins = {
 DetectorDisplay detectorDisplay(kDisplayPins);
 asap::ui::UIController ui(detectorDisplay);
 uint32_t lastHeartbeat = 0;  // last time the heartbeat ran
-int16_t gLastAudioSample = 0;  // keeps audio path linked and visible
 
 
 // Sample buttons (UP/DOWN/LEFT/RIGHT/CLICK) and map to JoyAction.
@@ -79,9 +90,13 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
-  // Initialize the MCU-style audio engine so it contributes to flash/RAM usage
-  // in detector builds. The sample is polled periodically in the main loop.
+  MX_TIM3_Init();
+
+  // Initialize the MCU-style audio engine and start the timers used for audio
+  // PWM (TIM2) and the 8 kHz sample clock (TIM3).
   asap_audio_init();
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  HAL_TIM_Base_Start_IT(&htim3);
 
   if (detectorDisplay.begin())
   {
@@ -103,14 +118,6 @@ int main(void)
           (HAL_GPIO_ReadPin(BUT_CLICK_GPIO_Port, BUT_CLICK_Pin) == GPIO_PIN_RESET);
       const asap::input::JoyAction action = sampleButtons();
       ui.onTick(now, {centerDown, action});
-
-      // Advance the audio engine at 8 kHz by polling several samples per UI
-      // heartbeat. The exact scheduling will be refined when PWM output is
-      // wired, but this keeps the code linked for size accounting.
-      for (int i = 0; i < 8; ++i)
-      {
-        gLastAudioSample = asap_audio_get_sample();
-      }
     }
   }
 }

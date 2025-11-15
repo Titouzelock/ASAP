@@ -17,16 +17,17 @@ namespace
 constexpr double kPi = 3.14159265358979323846;
 
 // RC / sample-rate parameters for the simulation layer.
-constexpr double kRcCutoffHz = 3000.0;
+constexpr double kRcCutoffHzLegacy = 3000.0;     // legacy 1-pole reference
 constexpr double kOutputSampleRateHz = 48000.0;
 
-// Simple first-order low-pass filter matching the analog RC.
+// Simple first-order low-pass filter matching the original analog RC.
+// Kept as a reference; current snapshots use the 2-pole variant below.
 class RcFilter
 {
  public:
   RcFilter()
   {
-    const double omega = 2.0 * kPi * kRcCutoffHz;
+    const double omega = 2.0 * kPi * kRcCutoffHzLegacy;
     alpha_ = omega / (omega + kOutputSampleRateHz);
     state_ = 0.0;
   }
@@ -46,6 +47,41 @@ class RcFilter
   double alpha_;
   double state_;
 };
+
+// 2-pole RC filter at fc ≈ 7.2 kHz (per pole), fs = 48 kHz. Implemented as
+// two cascaded first-order sections using a shared alpha.
+namespace
+{
+
+float gRcAlpha = 0.0f;
+float gRc1State = 0.0f;
+float gRc2State = 0.0f;
+bool gRcInitialized = false;
+
+void rc2_init()
+{
+  const float fc = 7200.0f;
+  const float fs = static_cast<float>(kOutputSampleRateHz);
+  const float omega = 2.0f * static_cast<float>(kPi) * fc;
+  gRcAlpha = omega / (omega + fs);
+  gRc1State = 0.0f;
+  gRc2State = 0.0f;
+  gRcInitialized = true;
+}
+
+float rc2_apply(float x)
+{
+  if (!gRcInitialized)
+  {
+    rc2_init();
+  }
+
+  gRc1State = gRc1State + gRcAlpha * (x - gRc1State);
+  gRc2State = gRc2State + gRcAlpha * (gRc1State - gRc2State);
+  return gRc2State;
+}
+
+}  // namespace
 
 // WAV writer for mono 16-bit PCM at 48 kHz.
 void writeWav16Mono(const std::filesystem::path& path,
@@ -121,9 +157,6 @@ void renderSnapshot(int16_t* buffer,
 {
   asap_audio_init();
 
-  RcFilter filter;
-  filter.reset();
-
   const uint32_t upsampleFactor =
       static_cast<uint32_t>(kOutputSampleRateHz /
                             asap::audio::kSampleRateHz);
@@ -152,9 +185,10 @@ void renderSnapshot(int16_t* buffer,
       --samplesUntilNextSource;
     }
 
-    const double x = static_cast<double>(currentSourceSample) / 32768.0;
-    const double y = filter.process(x);
-    double clamped = y;
+    const float x =
+        static_cast<float>(currentSourceSample) / 32768.0f;
+    const float y = rc2_apply(x);
+    float clamped = y;
     if (clamped > 1.0)
     {
       clamped = 1.0;
@@ -164,7 +198,8 @@ void renderSnapshot(int16_t* buffer,
       clamped = -1.0;
     }
 
-    buffer[i] = static_cast<int16_t>(clamped * 32767.0);
+    buffer[i] =
+        static_cast<int16_t>(clamped * 32767.0f);
   }
 }
 
@@ -173,6 +208,81 @@ void renderSnapshot(int16_t* buffer,
 void triggerGeigerClick()
 {
   geiger_trigger_click();
+}
+
+void triggerGeigerSingleReal()
+{
+  geiger_trigger_click();
+}
+
+void triggerGeigerResonantStalker()
+{
+  geiger_trigger_click_resonant_stalker();
+}
+
+void triggerGeigerResonantStalkerSnappyMid()
+{
+  geiger_trigger_click_resonant_stalker_snappy_mid();
+}
+
+void triggerGeigerResonantStalkerSnappyStrong()
+{
+  geiger_trigger_click_resonant_stalker_snappy_strong();
+}
+
+void triggerGeigerResonantMetallic()
+{
+  geiger_trigger_click_resonant_metallic();
+}
+
+void triggerGeigerResonantMetallicSnappyMid()
+{
+  geiger_trigger_click_resonant_metallic_snappy_mid();
+}
+
+void triggerGeigerResonantMetallicSnappyStrong()
+{
+  geiger_trigger_click_resonant_metallic_snappy_strong();
+}
+
+void triggerGeigerResonantSciFi()
+{
+  geiger_trigger_click_resonant_scifi();
+}
+
+void triggerGeigerResonantSciFiSnappyMid()
+{
+  geiger_trigger_click_resonant_scifi_snappy_mid();
+}
+
+void triggerGeigerResonantSciFiSnappyStrong()
+{
+  geiger_trigger_click_resonant_scifi_snappy_strong();
+}
+
+void triggerGeigerResonantBio()
+{
+  geiger_trigger_click_resonant_bio();
+}
+
+void triggerGeigerResonantBioSnappyMid()
+{
+  geiger_trigger_click_resonant_bio_snappy_mid();
+}
+
+void triggerGeigerResonantBioSnappyStrong()
+{
+  geiger_trigger_click_resonant_bio_snappy_strong();
+}
+
+void triggerGeigerBurst3()
+{
+  geiger_trigger_burst(3, 3);
+}
+
+void triggerGeigerBurst5()
+{
+  geiger_trigger_burst(5, 5);
 }
 
 void triggerBeepSingle()
@@ -198,7 +308,6 @@ void triggerBeepAlert()
 // Extern used by Unity via DllImport: returns one filtered sample at 48 kHz.
 extern "C" float asap_audio_render_sample()
 {
-  static RcFilter sFilter;
   static bool sInitialized = false;
   static int16_t sCurrentSourceSample = 0;
   static uint32_t sSamplesUntilNextSource = 0;
@@ -206,7 +315,7 @@ extern "C" float asap_audio_render_sample()
   if (!sInitialized)
   {
     asap_audio_init();
-    sFilter.reset();
+    rc2_init();
     sCurrentSourceSample = 0;
     sSamplesUntilNextSource = 0;
     sInitialized = true;
@@ -226,10 +335,11 @@ extern "C" float asap_audio_render_sample()
     --sSamplesUntilNextSource;
   }
 
-  const double x = static_cast<double>(sCurrentSourceSample) / 32768.0;
-  const double y = sFilter.process(x);
+  const float x =
+      static_cast<float>(sCurrentSourceSample) / 32768.0f;
+  const float y = rc2_apply(x);
 
-  double clamped = y;
+  float clamped = y;
   if (clamped > 1.0)
   {
     clamped = 1.0;
@@ -258,6 +368,70 @@ void test_audio_snapshots_generate_wav_files()
   // Geiger click
   renderSnapshot(buffer, totalSamples, &triggerGeigerClick);
   writeWav16Mono(dir / "geiger_click.wav", buffer, totalSamples);
+
+  // Real single click with 16 kHz engine and kernel.
+  renderSnapshot(buffer, totalSamples, &triggerGeigerSingleReal);
+  writeWav16Mono(dir / "geiger_single_click.wav", buffer, totalSamples);
+
+  // Resonant Geiger clicks (attack variants)
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantStalker);
+  writeWav16Mono(dir / "geiger_resonant_stalker_default.wav",
+                 buffer,
+                 totalSamples);
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantStalkerSnappyMid);
+  writeWav16Mono(dir / "geiger_resonant_stalker_snappy_mid.wav",
+                 buffer,
+                 totalSamples);
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantStalkerSnappyStrong);
+  writeWav16Mono(dir / "geiger_resonant_stalker_snappy_strong.wav",
+                 buffer,
+                 totalSamples);
+
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantMetallic);
+  writeWav16Mono(dir / "geiger_resonant_metallic_default.wav",
+                 buffer,
+                 totalSamples);
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantMetallicSnappyMid);
+  writeWav16Mono(dir / "geiger_resonant_metallic_snappy_mid.wav",
+                 buffer,
+                 totalSamples);
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantMetallicSnappyStrong);
+  writeWav16Mono(dir / "geiger_resonant_metallic_snappy_strong.wav",
+                 buffer,
+                 totalSamples);
+
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantSciFi);
+  writeWav16Mono(dir / "geiger_resonant_scifi_default.wav",
+                 buffer,
+                 totalSamples);
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantSciFiSnappyMid);
+  writeWav16Mono(dir / "geiger_resonant_scifi_snappy_mid.wav",
+                 buffer,
+                 totalSamples);
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantSciFiSnappyStrong);
+  writeWav16Mono(dir / "geiger_resonant_scifi_snappy_strong.wav",
+                 buffer,
+                 totalSamples);
+
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantBio);
+  writeWav16Mono(dir / "geiger_resonant_bio_default.wav",
+                 buffer,
+                 totalSamples);
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantBioSnappyMid);
+  writeWav16Mono(dir / "geiger_resonant_bio_snappy_mid.wav",
+                 buffer,
+                 totalSamples);
+  renderSnapshot(buffer, totalSamples, &triggerGeigerResonantBioSnappyStrong);
+  writeWav16Mono(dir / "geiger_resonant_bio_snappy_strong.wav",
+                 buffer,
+                 totalSamples);
+
+  // Burst examples
+  renderSnapshot(buffer, totalSamples, &triggerGeigerBurst3);
+  writeWav16Mono(dir / "geiger_burst_3_clicks.wav", buffer, totalSamples);
+
+  renderSnapshot(buffer, totalSamples, &triggerGeigerBurst5);
+  writeWav16Mono(dir / "geiger_burst_5_clicks.wav", buffer, totalSamples);
 
   // Beep patterns
   renderSnapshot(buffer, totalSamples, &triggerBeepSingle);

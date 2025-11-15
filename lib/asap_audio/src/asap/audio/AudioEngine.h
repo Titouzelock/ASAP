@@ -6,6 +6,22 @@
 namespace asap::audio
 {
 
+enum class GeigerClickType : uint8_t
+{
+  Short = 0,
+  ResonantStalker,
+  ResonantMetallic,
+  ResonantSciFi,
+  ResonantBio,
+};
+
+enum class GeigerAttackShape : uint8_t
+{
+  Default = 0,   // 200/256 decay, no overshoot
+  Snappier1,     // 180/256 decay
+  Snappier2,     // 160/256 decay + overshoot
+};
+
 // Initializes internal engine state. Should be called once on startup or
 // before starting snapshot renders in the native tests.
 void init();
@@ -15,6 +31,19 @@ void init();
 // Arms a single geiger click. The click is synthesized over the next
 // kGeigerClickLengthSamples samples returned by getSample().
 void geigerTriggerClick();
+void geigerTriggerClickResonantStalker();
+void geigerTriggerClickResonantMetallic();
+void geigerTriggerClickResonantSciFi();
+void geigerTriggerClickResonantBio();
+void geigerTriggerClickResonantStalkerSnappyMid();
+void geigerTriggerClickResonantMetallicSnappyMid();
+void geigerTriggerClickResonantSciFiSnappyMid();
+void geigerTriggerClickResonantBioSnappyMid();
+void geigerTriggerClickResonantStalkerSnappyStrong();
+void geigerTriggerClickResonantMetallicSnappyStrong();
+void geigerTriggerClickResonantSciFiSnappyStrong();
+void geigerTriggerClickResonantBioSnappyStrong();
+void geigerTriggerBurst(uint8_t countMin, uint8_t countMax);
 
 // Low-level access to the geiger channel only; normally the mixer should be
 // used via getSample().
@@ -54,6 +83,19 @@ int16_t asap_audio_get_sample();
 // Geiger control.
 void geiger_trigger_click();
 int16_t geiger_get_sample();
+void geiger_trigger_click_resonant_stalker();
+void geiger_trigger_click_resonant_metallic();
+void geiger_trigger_click_resonant_scifi();
+void geiger_trigger_click_resonant_bio();
+void geiger_trigger_click_resonant_stalker_snappy_mid();
+void geiger_trigger_click_resonant_metallic_snappy_mid();
+void geiger_trigger_click_resonant_scifi_snappy_mid();
+void geiger_trigger_click_resonant_bio_snappy_mid();
+void geiger_trigger_click_resonant_stalker_snappy_strong();
+void geiger_trigger_click_resonant_metallic_snappy_strong();
+void geiger_trigger_click_resonant_scifi_snappy_strong();
+void geiger_trigger_click_resonant_bio_snappy_strong();
+void geiger_trigger_burst(uint8_t countMin, uint8_t countMax);
 
 // Beep control.
 void beep_start(uint16_t freqHz, uint16_t durationMs, uint8_t level0_255);
@@ -63,4 +105,3 @@ int16_t beep_get_sample();
 void beep_pattern_start(uint8_t patternId);
 
 }
-
