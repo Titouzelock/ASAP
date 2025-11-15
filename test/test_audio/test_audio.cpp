@@ -229,6 +229,73 @@ void triggerBeepGeigerMix()
   geiger_trigger_burst(5, 5);
 }
 
+// Render helper for burst randomization visualization: several bursts in a
+// single 2 s snapshot to observe varying intra-burst spacing.
+void renderBurstRandomizationSnapshot(int16_t* buffer,
+                                      uint32_t outputSampleCount)
+{
+  asap::audio::init();
+  rc2_init();
+
+  const uint32_t upsampleFactor =
+      static_cast<uint32_t>(kOutputSampleRateHz /
+                            asap::audio::kSampleRateHz);
+
+  int16_t currentSourceSample = 0;
+  uint32_t samplesUntilNextSource = 0;
+  uint32_t engineSampleIndex = 0;
+
+  // Schedule three identical bursts at different engine times so random
+  // spacing inside each burst is visible in a single waveform.
+  const uint32_t burst0Start = 0U;                         // t = 0 ms
+  const uint32_t burst1Start = 6000U;                      // t = 375 ms
+  const uint32_t burst2Start = 12000U;                     // t = 750 ms
+
+  for (uint32_t i = 0; i < outputSampleCount; ++i)
+  {
+    if (samplesUntilNextSource == 0U)
+    {
+      // Engine tick at 16 kHz.
+      if (engineSampleIndex == burst0Start)
+      {
+        geiger_trigger_burst(5, 5);
+      }
+      else if (engineSampleIndex == burst1Start)
+      {
+        geiger_trigger_burst(5, 5);
+      }
+      else if (engineSampleIndex == burst2Start)
+      {
+        geiger_trigger_burst(5, 5);
+      }
+
+      currentSourceSample = asap_audio_get_sample();
+      samplesUntilNextSource = upsampleFactor - 1U;
+      ++engineSampleIndex;
+    }
+    else
+    {
+      --samplesUntilNextSource;
+    }
+
+    const float x =
+        static_cast<float>(currentSourceSample) / 32768.0f;
+    const float y = rc2_apply(x);
+    float clamped = y;
+    if (clamped > 1.0f)
+    {
+      clamped = 1.0f;
+    }
+    else if (clamped < -1.0f)
+    {
+      clamped = -1.0f;
+    }
+
+    buffer[i] =
+        static_cast<int16_t>(clamped * 32767.0f);
+  }
+}
+
 // Extern used by Unity via DllImport: returns one filtered sample at 48 kHz.
 extern "C" float asap_audio_render_sample()
 {
@@ -306,6 +373,10 @@ void test_audio_snapshots_generate_wav_files()
   // Beep + Geiger mix
   renderSnapshot(buffer, totalSamples, &triggerBeepGeigerMix);
   writeWav16Mono(dir / "beep_geiger_mix.wav", buffer, totalSamples);
+
+  // Multiple bursts in a single file to visualize random spacing.
+  renderBurstRandomizationSnapshot(buffer, totalSamples);
+  writeWav16Mono(dir / "geiger_burst_randomized.wav", buffer, totalSamples);
 
   delete[] buffer;
 }

@@ -8,6 +8,16 @@ namespace
 
 // ---------------------------------------------------------------------------
 // Geiger click engine (hybrid: recorded attack + synthetic tail)
+//
+// The Geiger path synthesizes a "click" as two regions:
+//  - Attack: 64 recorded int16 samples played back with a 16-bit envelope.
+//  - Tail:   440 Hz sine tone with small random jitter and noise, shaped by
+//            a 16-bit exponential envelope.
+//
+// For simplicity and to keep the output predictable, the engine is currently
+// monophonic: any new click kills previous tails and starts a fresh one in
+// slot 0. The surrounding code still uses a small GeigerClick array so the
+// design can be extended later if needed.
 // ---------------------------------------------------------------------------
 
 struct GeigerClick
@@ -115,8 +125,9 @@ static uint16_t randomInRange(uint16_t minVal, uint16_t maxVal)
 
 static int16_t geigerGetSampleInternal()
 {
-  // Precomputed attack envelope LUT (generated on first use) using the
-  // configured exponential decay factor.
+  // Precomputed attack envelope LUT (generated on first use). Values are
+  // 16-bit fixed-point, starting at kGeigerAttackInitialEnv and decaying
+  // with kGeigerAttackDecayFactor each sample.
   static bool sAttackEnvInitialized = false;
   static uint16_t sAttackEnvLut[kGeigerAttackSamples];
 
@@ -154,8 +165,10 @@ static int16_t geigerGetSampleInternal()
 
       if (pos < kGeigerAttackSamples)
       {
-        // Attack region: apply a light exponential envelope to the
-        // recorded attack sample.
+        // ATTACK REGION ------------------------------------------------------
+        // Apply a light exponential envelope to the recorded attack
+        // waveform. This restores a natural decay and makes the transition
+        // into the tail less abrupt.
         const uint16_t attackEnv = sAttackEnvLut[pos];
         const int16_t raw = kGeigerAttack64[pos];
         wave = (static_cast<int32_t>(raw) *
@@ -164,8 +177,9 @@ static int16_t geigerGetSampleInternal()
       }
       else
       {
-        // Tail region: decaying 440 Hz tone with small random jitter
-        // and a low-level noise component for realism.
+        // TAIL REGION --------------------------------------------------------
+        // Decaying 440 Hz tone with small random jitter and a low-level
+        // wideband noise component for realism.
         uint16_t tailEnv = c.tailEnv;
         if (tailEnv == 0U)
         {
@@ -173,7 +187,7 @@ static int16_t geigerGetSampleInternal()
           continue;
         }
 
-        // Random frequency jitter of roughly ±2%.
+        // Random frequency jitter of roughly ±2% of the 440 Hz phase step.
         const uint16_t rJitter = nextRandom();
         const int16_t jitter =
             static_cast<int16_t>((rJitter & kGeigerTailJitterMask) -
@@ -198,8 +212,8 @@ static int16_t geigerGetSampleInternal()
              static_cast<int32_t>(tailEnv)) >>
             16;
 
-        // Wideband noise at about -40 dB relative to full-scale,
-        // also shaped by the tail envelope.
+        // Wideband noise at about -40 dB relative to full-scale, also
+        // shaped by the tail envelope so both tone and noise fade together.
         const uint16_t rNoise = nextRandom();
         const int16_t noiseSmall =
             static_cast<int16_t>(
@@ -212,7 +226,8 @@ static int16_t geigerGetSampleInternal()
 
         wave = tone + noise;
 
-        // Tail envelope decay: simple exponential.
+        // Tail envelope decay: 16-bit fixed-point exponential using the
+        // configured kGeigerTailDecayFactor.
         uint16_t decayed =
             static_cast<uint16_t>(
                 (static_cast<uint32_t>(tailEnv) *
@@ -460,10 +475,12 @@ static int16_t mixSample()
       {
         gBurst.active = false;
       }
-      else
-      {
-        gBurst.delay = randomInRange(32U, 512U);
-      }
+        else
+        {
+          gBurst.delay = randomInRange(
+              kGeigerBurstMinDelaySamples,
+              kGeigerBurstMaxDelaySamples);
+        }
     }
   }
 
@@ -555,7 +572,9 @@ void geigerTriggerBurst(uint8_t minCount, uint8_t maxCount)
 
   gBurst.active = true;
   gBurst.remaining = count;
-  gBurst.delay = randomInRange(32U, 512U);
+  gBurst.delay = randomInRange(
+      kGeigerBurstMinDelaySamples,
+      kGeigerBurstMaxDelaySamples);
 }
 
 void beep_start(uint16_t freq_hz,
