@@ -14,8 +14,24 @@ constexpr int16_t kMinSampleValue = -32768;
 // Geiger click parameters
 constexpr uint16_t kGeigerAttackSamples = 64U;      // 4 ms @ 16 kHz
 constexpr uint16_t kGeigerTailMaxSamples = 1280U;   // 80 ms max tail
-constexpr uint8_t kGeigerTailMaxEnv = 255U;
-constexpr uint8_t kGeigerTailDecayFactor = 255U;    // ≈0.995 per sample
+constexpr uint16_t kGeigerTailMaxEnv = 10000U;
+// 16-bit fixed-point decay factors (value / 65536.0f)
+constexpr uint16_t kGeigerTailDecayFactor =
+    65300U;  // 255/256 � 0.996 per sample
+
+// Geiger envelopes / decay tuning (16-bit envelopes)
+constexpr uint16_t kGeigerAttackInitialEnv = 65535U;
+// Matches legacy 241/256 � 0.94 per sample, promoted to 16-bit.
+constexpr uint16_t kGeigerAttackDecayFactor =
+    65535U;  // 241/256 * 65536
+
+constexpr uint16_t kGeigerTailInitialEnv = kGeigerTailMaxEnv;
+
+// Geiger tail realism parameters (frequency jitter and noise blend)
+constexpr uint8_t kGeigerTailJitterMask = 0x3FU;       // bits used for jitter
+constexpr int8_t kGeigerTailJitterOffset = 32;         // center of jitter range
+constexpr uint16_t kGeigerTailNoiseMask = 0x03FFU;     // noise magnitude mask
+constexpr int16_t kGeigerTailNoiseOffset = 512;        // center of noise range
 
 // Beep limits (restored from legacy engine)
 constexpr uint16_t kBeepMinFreqHz = 200U;
@@ -51,4 +67,3 @@ enum class BeepPattern : uint8_t
 };
 
 }  // namespace asap::audio
-

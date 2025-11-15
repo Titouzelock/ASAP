@@ -14,7 +14,7 @@ struct GeigerClick
 {
   bool active;
   uint16_t pos;        // 0..kGeigerTailMaxSamples
-  uint8_t tailEnv;     // 0..255
+  uint16_t tailEnv;    // 0..kGeigerTailMaxEnv
   uint16_t tailPhase;  // phase accumulator for tail tone
 };
 
@@ -113,76 +113,126 @@ static uint16_t randomInRange(uint16_t minVal, uint16_t maxVal)
   return static_cast<uint16_t>(minVal + (r % span));
 }
 
-static int16_t renderClick(GeigerClick &c)
-{
-  if (!c.active)
-  {
-    return 0;
-  }
-
-  uint16_t pos = c.pos;
-
-  if (pos >= kGeigerTailMaxSamples && c.tailEnv == 0U)
-  {
-    c.active = false;
-    return 0;
-  }
-
-  int32_t wave = 0;
-
-  if (pos < kGeigerAttackSamples)
-  {
-    wave = kGeigerAttack64[pos];
-  }
-  else
-  {
-    if (c.tailEnv == 0U)
-    {
-      c.active = false;
-      return 0;
-    }
-
-    c.tailPhase =
-        static_cast<uint16_t>(c.tailPhase + kGeigerTailPhaseStep);
-    const uint8_t idx = static_cast<uint8_t>(c.tailPhase >> 8);
-    const int16_t s = kSinLut16[idx];
-
-    wave = (static_cast<int32_t>(s) *
-            static_cast<int32_t>(c.tailEnv)) >>
-           8;
-  }
-
-  if (pos >= kGeigerAttackSamples && c.tailEnv > 0U)
-  {
-    c.tailEnv = static_cast<uint8_t>(
-        (static_cast<uint16_t>(c.tailEnv) *
-         kGeigerTailDecayFactor) >>
-        8);
-  }
-
-  c.pos = static_cast<uint16_t>(pos + 1U);
-
-  if (wave > kMaxSampleValue)
-  {
-    wave = kMaxSampleValue;
-  }
-  else if (wave < kMinSampleValue)
-  {
-    wave = kMinSampleValue;
-  }
-
-  return static_cast<int16_t>(wave);
-}
-
 static int16_t geigerGetSampleInternal()
 {
+  // Precomputed attack envelope LUT (generated on first use) using the
+  // configured exponential decay factor.
+  static bool sAttackEnvInitialized = false;
+  static uint16_t sAttackEnvLut[kGeigerAttackSamples];
+
+  if (!sAttackEnvInitialized)
+  {
+    uint32_t env = kGeigerAttackInitialEnv;
+    for (uint16_t i = 0; i < kGeigerAttackSamples; ++i)
+    {
+      sAttackEnvLut[i] = static_cast<uint16_t>(env);
+      env = (env * kGeigerAttackDecayFactor) >> 16;
+      if (env == 0U)
+      {
+        env = 1U;
+      }
+    }
+    sAttackEnvInitialized = true;
+  }
+
   int32_t acc = 0;
   for (uint32_t i = 0; i < 4U; ++i)
   {
     GeigerClick &c = gClicks[i];
     if (c.active)
     {
-      acc += static_cast<int32_t>(renderClick(c));
+      uint16_t pos = c.pos;
+
+      // End-of-life based on maximum tail length.
+      if (pos >= kGeigerTailMaxSamples)
+      {
+        c.active = false;
+        continue;
+      }
+
+      int32_t wave = 0;
+
+      if (pos < kGeigerAttackSamples)
+      {
+        // Attack region: apply a light exponential envelope to the
+        // recorded attack sample.
+        const uint16_t attackEnv = sAttackEnvLut[pos];
+        const int16_t raw = kGeigerAttack64[pos];
+        wave = (static_cast<int32_t>(raw) *
+                static_cast<int32_t>(attackEnv)) >>
+               16;
+      }
+      else
+      {
+        // Tail region: decaying 440 Hz tone with small random jitter
+        // and a low-level noise component for realism.
+        uint16_t tailEnv = c.tailEnv;
+        if (tailEnv == 0U)
+        {
+          c.active = false;
+          continue;
+        }
+
+        // Random frequency jitter of roughly ±2%.
+        const uint16_t rJitter = nextRandom();
+        const int16_t jitter =
+            static_cast<int16_t>((rJitter & kGeigerTailJitterMask) -
+                                 kGeigerTailJitterOffset);
+        int32_t stepWithJitter =
+            static_cast<int32_t>(kGeigerTailPhaseStep) +
+            static_cast<int32_t>(jitter);
+        if (stepWithJitter < 0)
+        {
+          stepWithJitter = 0;
+        }
+
+        c.tailPhase = static_cast<uint16_t>(
+            c.tailPhase +
+            static_cast<uint16_t>(stepWithJitter));
+        const uint8_t idx =
+            static_cast<uint8_t>(c.tailPhase >> 8);
+        const int16_t s = kSinLut16[idx];
+
+        const int32_t tone =
+            (static_cast<int32_t>(s) *
+             static_cast<int32_t>(tailEnv)) >>
+            16;
+
+        // Wideband noise at about -40 dB relative to full-scale,
+        // also shaped by the tail envelope.
+        const uint16_t rNoise = nextRandom();
+        const int16_t noiseSmall =
+            static_cast<int16_t>(
+                (static_cast<int16_t>(rNoise & kGeigerTailNoiseMask)) -
+                kGeigerTailNoiseOffset);
+        const int32_t noise =
+            (static_cast<int32_t>(noiseSmall) *
+             static_cast<int32_t>(tailEnv)) >>
+            16;
+
+        wave = tone + noise;
+
+        // Tail envelope decay: simple exponential.
+        uint16_t decayed =
+            static_cast<uint16_t>(
+                (static_cast<uint32_t>(tailEnv) *
+                 static_cast<uint32_t>(kGeigerTailDecayFactor)) >>
+                16);
+        c.tailEnv = decayed;
+      }
+
+      c.pos = static_cast<uint16_t>(pos + 1U);
+
+      if (wave > kMaxSampleValue)
+      {
+        wave = kMaxSampleValue;
+      }
+      else if (wave < kMinSampleValue)
+      {
+        wave = kMinSampleValue;
+      }
+
+      acc += wave;
     }
   }
 
@@ -385,19 +435,21 @@ static int16_t mixSample()
 
     if (gBurst.delay == 0U && gBurst.remaining > 0U)
     {
-      // Try to trigger a click; if all slots are busy we simply drop it.
+      // Monophonic behavior: kill any existing tails and start a fresh click
+      // in the first slot so only one tail is ever active.
       for (uint32_t i = 0; i < 4U; ++i)
       {
-        GeigerClick &c = gClicks[i];
-        if (!c.active)
-        {
-          c.active = true;
-          c.pos = 0U;
-          c.tailEnv = kGeigerTailMaxEnv;
-          c.tailPhase = 0U;
-          break;
-        }
+        gClicks[i].active = false;
+        gClicks[i].pos = 0U;
+        gClicks[i].tailEnv = 0U;
+        gClicks[i].tailPhase = 0U;
       }
+
+      GeigerClick &c = gClicks[0];
+      c.active = true;
+      c.pos = 0U;
+      c.tailEnv = kGeigerTailInitialEnv;
+      c.tailPhase = 0U;
 
       if (gBurst.remaining > 0U)
       {
@@ -470,18 +522,20 @@ int16_t getSample()
 
 void geigerTriggerClick()
 {
+  // Monophonic behavior: clear any existing click tails and re-arm slot 0.
   for (uint32_t i = 0; i < 4U; ++i)
   {
-    GeigerClick &c = gClicks[i];
-    if (!c.active)
-    {
-      c.active = true;
-      c.pos = 0U;
-      c.tailEnv = kGeigerTailMaxEnv;
-      c.tailPhase = 0U;
-      return;
-    }
+    gClicks[i].active = false;
+    gClicks[i].pos = 0U;
+    gClicks[i].tailEnv = 0U;
+    gClicks[i].tailPhase = 0U;
   }
+
+  GeigerClick &c = gClicks[0];
+  c.active = true;
+  c.pos = 0U;
+  c.tailEnv = kGeigerTailInitialEnv;
+  c.tailPhase = 0U;
 }
 
 void geigerTriggerBurst(uint8_t minCount, uint8_t maxCount)
@@ -623,4 +677,3 @@ void beep_pattern_start(uint8_t pattern_id)
 }
 
 }
-
