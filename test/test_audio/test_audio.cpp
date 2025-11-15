@@ -149,13 +149,14 @@ std::filesystem::path snapshotsDir()
   return dir;
 }
 
-// Render helper: runs the MCU engine at 8 kHz, upsamples to 48 kHz using ZOH,
-// applies the RC filter and stores 16-bit PCM samples.
+// Render helper: runs the MCU engine at 16 kHz, upsamples to 48 kHz using
+// ZOH x3, applies the RC filter and stores 16-bit PCM samples.
 void renderSnapshot(int16_t* buffer,
                     uint32_t outputSampleCount,
                     void (*triggerFn)())
 {
-  asap_audio_init();
+  asap::audio::init();
+  rc2_init();
 
   const uint32_t upsampleFactor =
       static_cast<uint32_t>(kOutputSampleRateHz /
@@ -164,17 +165,14 @@ void renderSnapshot(int16_t* buffer,
   int16_t currentSourceSample = 0;
   uint32_t samplesUntilNextSource = 0;
 
-  // Initial silence: advance the engine for a short time before triggering.
-  const uint32_t preSilenceSamples =
-      static_cast<uint32_t>(0.1 * kOutputSampleRateHz);  // 100 ms
+  if (triggerFn != nullptr)
+  {
+    // Trigger at t = 0.
+    triggerFn();
+  }
 
   for (uint32_t i = 0; i < outputSampleCount; ++i)
   {
-    if (i == preSilenceSamples && triggerFn != nullptr)
-    {
-      triggerFn();
-    }
-
     if (samplesUntilNextSource == 0)
     {
       currentSourceSample = asap_audio_get_sample();
@@ -205,7 +203,7 @@ void renderSnapshot(int16_t* buffer,
 
 // Triggers for the different snapshots.
 
-void triggerGeigerHybridSingle()
+void triggerGeigerSingle()
 {
   geiger_trigger_click();
 }
@@ -217,6 +215,17 @@ void triggerGeigerBurst3()
 
 void triggerGeigerBurst5()
 {
+  geiger_trigger_burst(5, 5);
+}
+
+void triggerBeepSingle()
+{
+  beep_start(1000, 200, 255);
+}
+
+void triggerBeepGeigerMix()
+{
+  beep_start(1000, 200, 255);
   geiger_trigger_burst(5, 5);
 }
 
@@ -280,15 +289,23 @@ void test_audio_snapshots_generate_wav_files()
 
   int16_t* buffer = new int16_t[totalSamples];
 
-  // Hybrid Geiger click snapshots
-  renderSnapshot(buffer, totalSamples, &triggerGeigerHybridSingle);
-  writeWav16Mono(dir / "geiger_hybrid_single.wav", buffer, totalSamples);
+  // Geiger click snapshots
+  renderSnapshot(buffer, totalSamples, &triggerGeigerSingle);
+  writeWav16Mono(dir / "geiger_single_click.wav", buffer, totalSamples);
 
   renderSnapshot(buffer, totalSamples, &triggerGeigerBurst3);
-  writeWav16Mono(dir / "geiger_hybrid_burst3.wav", buffer, totalSamples);
+  writeWav16Mono(dir / "geiger_burst_3.wav", buffer, totalSamples);
 
   renderSnapshot(buffer, totalSamples, &triggerGeigerBurst5);
-  writeWav16Mono(dir / "geiger_hybrid_burst5.wav", buffer, totalSamples);
+  writeWav16Mono(dir / "geiger_burst_5.wav", buffer, totalSamples);
+
+  // Beep-only snapshot
+  renderSnapshot(buffer, totalSamples, &triggerBeepSingle);
+  writeWav16Mono(dir / "beep_single.wav", buffer, totalSamples);
+
+  // Beep + Geiger mix
+  renderSnapshot(buffer, totalSamples, &triggerBeepGeigerMix);
+  writeWav16Mono(dir / "beep_geiger_mix.wav", buffer, totalSamples);
 
   delete[] buffer;
 }
