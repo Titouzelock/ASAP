@@ -60,8 +60,10 @@ extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim3;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
-// Audio engine C wrapper (defined in lib/asap_audio).
+// Audio engine C wrappers (defined in lib/asap_audio).
 extern int16_t asap_audio_get_sample(void);
+extern void asap_audio_set_volume(uint8_t vol);
+extern uint8_t asap_audio_get_volume(void);
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -226,10 +228,21 @@ void TIM3_IRQHandler(void)
   /* USER CODE END TIM3_IRQn 0 */
   HAL_TIM_IRQHandler(&htim3);
   /* USER CODE BEGIN TIM3_IRQn 1 */
-  // 8 kHz audio sample clock: fetch the next mixed sample from the MCU audio
-  // engine and map it to the TIM2 PWM duty cycle on channel 1 (PA0).
-  int16_t sample = asap_audio_get_sample();
-  int32_t shifted = (int32_t)sample + 32768;
+  // 16 kHz audio sample clock (TIM3 update event):
+  //  - Fetch the next mixed sample from the MCU audio engine.
+  //  - Apply global volume scaling (0-100).
+  //  - Map the result to the TIM2 PWM duty cycle on channel 1 (PA0).
+  //
+  // All math is integer-only to keep the ISR execution time bounded and to
+  // avoid jitter on the audio sample clock.
+
+  // Signed 16-bit sample from the audio engine in the range [-32768, 32767].
+  const int16_t rawSample = asap_audio_get_sample();
+
+  // Convert to unsigned 16-bit in the range [0, 65535]. This is done by
+  // shifting the signed range by +32768 and clamping to protect against
+  // overflow around the edges.
+  int32_t shifted = (int32_t)rawSample + 32768;
   if (shifted < 0)
   {
     shifted = 0;
@@ -239,13 +252,33 @@ void TIM3_IRQHandler(void)
     shifted = 65535;
   }
 
-  uint32_t duty =
-      (uint32_t)((shifted * 720) >> 16);  // maps 0..65535 -> 0..719
-  if (duty > 719)
+  // Apply global volume in the range [0, 100]. Volume only affects the PWM
+  // level; the internal engine always runs at full scale so the native tests
+  // and waveform generation remain unchanged.
+  const uint8_t volume = asap_audio_get_volume();
+  uint32_t scaled = 0;
+  if (volume > 0U)
   {
-    duty = 719;
+    // scaled = shifted * volume / 100, using integer arithmetic.
+    scaled = (uint32_t)((shifted * (int32_t)volume) / 100);
+    if (scaled > 65535U)
+    {
+      scaled = 65535U;
+    }
   }
 
+  // Map [0, 65535] into [0, TIM2->ARR]. TIM2 is configured for a 100 kHz
+  // PWM carrier with ARR=719 (see MX_TIM2_Init), so the duty cycle range is
+  // [0, 719]. We use a multiply + shift to keep this fixed-point.
+  const uint32_t arr = htim2.Instance->ARR;
+  uint32_t duty =
+      (uint32_t)((scaled * (arr + 1U)) >> 16);  // maps 0..65535 -> 0..ARR
+  if (duty > arr)
+  {
+    duty = arr;
+  }
+
+  // Single atomic write to the CCR1 register to update the PWM duty.
   __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, duty);
   /* USER CODE END TIM3_IRQn 1 */
 }

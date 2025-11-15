@@ -69,4 +69,14 @@ void beep_stop_all();
 
 void beep_pattern_start(uint8_t pattern_id);
 
+// Global volume control (MCU path only). The audio engine always renders
+// at full internal amplitude; volume is applied when mapping to the PWM
+// duty cycle in the TIM3 interrupt on the MCU.
+//
+// Volume range:
+//  - 0   -> mute
+//  - 100 -> full scale
+void asap_audio_set_volume(uint8_t vol);
+uint8_t asap_audio_get_volume();
+
 }

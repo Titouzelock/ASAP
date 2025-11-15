@@ -3,9 +3,6 @@
 namespace asap::audio
 {
 
-namespace
-{
-
 // ---------------------------------------------------------------------------
 // Geiger click engine (hybrid: recorded attack + synthetic tail)
 //
@@ -42,6 +39,11 @@ static GeigerBurstState gBurst{
     /*delay=*/0U};
 
 static uint16_t gNoiseLfsr = 0xACE1u;
+// Global volume used by the MCU PWM output path. The core audio engine always
+// renders at full internal amplitude; this value is applied when converting
+// samples to a PWM duty cycle in the TIM3 interrupt on the MCU side.
+// Range: 0 = mute, 100 = full volume.
+uint8_t gAudioVolume = 100U;
 
 // 4 ms recorded attack at 16 kHz (64 samples).
 static const int16_t kGeigerAttack64[kGeigerAttackSamples] = {
@@ -499,8 +501,6 @@ static int16_t mixSample()
   return static_cast<int16_t>(acc);
 }
 
-}  // namespace
-
 // Public API -----------------------------------------------------------------
 
 void init()
@@ -693,6 +693,24 @@ void beep_stop_all()
 void beep_pattern_start(uint8_t pattern_id)
 {
   asap::audio::beep_pattern_start(pattern_id);
+}
+
+void asap_audio_set_volume(uint8_t vol)
+{
+  // Global volume is applied only on the MCU PWM output path, not in the
+  // internal waveform generation. Clamping to [0, 100] is done here so the
+  // timer ISR can use gAudioVolume directly without extra checks.
+  if (vol > 100U)
+  {
+    vol = 100U;
+  }
+
+  asap::audio::gAudioVolume = vol;
+}
+
+uint8_t asap_audio_get_volume()
+{
+  return asap::audio::gAudioVolume;
 }
 
 }
