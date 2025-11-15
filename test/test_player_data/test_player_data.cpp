@@ -126,3 +126,9 @@ void test_persistent_file_roundtrip(void)
   TEST_ASSERT_EQUAL_UINT8(42, q.system.brightness);
   TEST_ASSERT_EQUAL_UINT8(7, q.logic.armor);
 }
+
+// Stub for the audio snapshot test so the shared main can link this suite.
+void test_audio_snapshots_generate_wav_files(void)
+{
+  // Not used in this test group.
+}

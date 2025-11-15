@@ -1,0 +1,13 @@
+{
+  "name": "asap_audio",
+  "version": "0.1.0",
+  "description": "MCU-oriented audio engine for the ASAP detector firmware (geiger clicks and UI beeps).",
+  "keywords": [
+    "audio",
+    "asap",
+    "detector"
+  ],
+  "frameworks": "*",
+  "platforms": "*"
+}
+

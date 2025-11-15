@@ -371,6 +371,9 @@ void test_ui_menu_navigation_snapshots(void)
 // Removed: detailed config submenu walkthrough; simplified flow is covered in the main navigation test.
 #ifndef ARDUINO
 
+// Audio snapshot generator defined in test/test_audio/test_audio.cpp.
+void test_audio_snapshots_generate_wav_files();
+
 int main(int, char**)
 {
   // Clean previous snapshot files and reset counter so numbering is stable per run
@@ -392,6 +395,7 @@ int main(int, char**)
   UNITY_BEGIN();
   RUN_TEST(test_anomaly_hud_stage_snapshots);
   RUN_TEST(test_ui_menu_navigation_snapshots);
+  RUN_TEST(test_audio_snapshots_generate_wav_files);
   // Player data framing + CRC round-trip (native-only)
   void test_uart_frame_playerpersistent_roundtrip(void);
   RUN_TEST(test_uart_frame_playerpersistent_roundtrip);

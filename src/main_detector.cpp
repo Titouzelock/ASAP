@@ -10,6 +10,7 @@
 #include <asap/display/DetectorDisplay.h>  // SSD1322 display driver abstraction
 #include <asap/input/Joystick.h>          // High-level JoyAction enum
 #include <asap/ui/UIController.h>         // UI state machine
+#include <asap/audio/AudioEngine.h>       // MCU audio engine (geiger + beeps)
 
 using asap::display::DetectorDisplay;
 using asap::display::DisplayPins;
@@ -35,6 +36,8 @@ constexpr DisplayPins kDisplayPins = {
 DetectorDisplay detectorDisplay(kDisplayPins);
 asap::ui::UIController ui(detectorDisplay);
 uint32_t lastHeartbeat = 0;  // last time the heartbeat ran
+int16_t gLastAudioSample = 0;  // keeps audio path linked and visible
+
 
 // Sample buttons (UP/DOWN/LEFT/RIGHT/CLICK) and map to JoyAction.
 // Buttons are configured as GPIO inputs with pull-ups in MX_GPIO_Init.
@@ -76,6 +79,9 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
+  // Initialize the MCU-style audio engine so it contributes to flash/RAM usage
+  // in detector builds. The sample is polled periodically in the main loop.
+  asap_audio_init();
 
   if (detectorDisplay.begin())
   {
@@ -97,6 +103,14 @@ int main(void)
           (HAL_GPIO_ReadPin(BUT_CLICK_GPIO_Port, BUT_CLICK_Pin) == GPIO_PIN_RESET);
       const asap::input::JoyAction action = sampleButtons();
       ui.onTick(now, {centerDown, action});
+
+      // Advance the audio engine at 8 kHz by polling several samples per UI
+      // heartbeat. The exact scheduling will be refined when PWM output is
+      // wired, but this keeps the code linked for size accounting.
+      for (int i = 0; i < 8; ++i)
+      {
+        gLastAudioSample = asap_audio_get_sample();
+      }
     }
   }
 }
